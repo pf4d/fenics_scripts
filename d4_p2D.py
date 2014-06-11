@@ -1,3 +1,5 @@
+# script taken from the FEniCS project tutorial at http://fenicsproject.org
+
 from dolfin import *
 import numpy
 
