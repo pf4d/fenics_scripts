@@ -49,9 +49,9 @@ n1 = np.sqrt(sum(norm_U**2))
 n2 = np.sqrt(sum(norm_Uf.vector().array()**2))
 print n1, '?=', n2
 
-#File('f.pvd')     << project(f)
-#File('t.pvd')     << project(t)
-#File('gradf.pvd') << project(gradf)
+#File('output/f.pvd')     << project(f)
+#File('output/t.pvd')     << project(t)
+#File('output/gradf.pvd') << project(gradf)
 
 #plot(project(gradf))
 #plot(project(U))

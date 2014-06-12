@@ -177,7 +177,7 @@ solve(F == 0, U, J = J, solver_parameters = stokes_params)
 # solve for vertical velocity :
 solve(lhs(w_R) == rhs(w_R), w)
 
-File('U.pvd') << project(as_vector([u,v,w]))
+File('output/U.pvd') << project(as_vector([u,v,w]))
 
 
 

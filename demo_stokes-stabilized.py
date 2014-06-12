@@ -177,8 +177,6 @@ solve(a == L, w, bcs)
 u, p = w.split()
 
 # Save solution in VTK format
-ufile_pvd = File("velocity.pvd")
-ufile_pvd << u
-pfile_pvd = File("pressure.pvd")
-pfile_pvd << p
+File("output/velocity.pvd") << u
+File("output/pressure.pvd") << p
 
