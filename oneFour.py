@@ -1,5 +1,4 @@
 from fenics import *
-import numpy as np
 
 mesh      = UnitCubeMesh(10,10,10)
 flat_mesh = Mesh(mesh)
@@ -29,19 +28,19 @@ for f in facets(mesh):
 ds = Measure('ds')[ff]
 
 
-alpha   = np.deg2rad(0.5)
+alpha   = 0.5 * pi / 180
 L       = 5000.0
 
 class Surface(Expression):
   def eval(self,values,x):
-    values[0] = - x[0] * np.tan(alpha)
+    values[0] = - x[0] * tan(alpha)
 
 
 class Bed(Expression):
   def eval(self,values,x):
-    values[0] = - x[0] * np.tan(alpha) \
+    values[0] = - x[0] * tan(alpha) \
                 - 1000.0 \
-                + 500.0 * np.sin(2*pi*x[0]/L) * np.sin(2*pi*x[1]/L)
+                + 500.0 * sin(2*pi*x[0]/L) * sin(2*pi*x[1]/L)
 
 S = Surface(element = Q.ufl_element())
 B = Bed(element = Q.ufl_element())
@@ -77,15 +76,15 @@ for x,x0 in zip(mesh.coordinates(), flat_mesh.coordinates()):
 
 # set the parameters
 stokes_params = NonlinearVariationalSolver.default_parameters()
-stokes_params['newton_solver']['method']                  = 'lu'
-stokes_params['newton_solver']['report']                  = True
-stokes_params['newton_solver']['relaxation_parameter']    = 1.0
-stokes_params['newton_solver']['relative_tolerance']      = 2e-12
-stokes_params['newton_solver']['absolute_tolerance']      = 1e-3
-stokes_params['newton_solver']['maximum_iterations']      = 25
-stokes_params['newton_solver']['error_on_nonconvergence'] = False
-stokes_params['newton_solver']['linear_solver']           = 'mumps'
-stokes_params['newton_solver']['preconditioner']          = 'default'
+#stokes_params['newton_solver']['method']                  = 'lu'
+#stokes_params['newton_solver']['report']                  = True
+#stokes_params['newton_solver']['relaxation_parameter']    = 1.0
+#stokes_params['newton_solver']['relative_tolerance']      = 2e-12
+#stokes_params['newton_solver']['absolute_tolerance']      = 1e-3
+#stokes_params['newton_solver']['maximum_iterations']      = 25
+#stokes_params['newton_solver']['error_on_nonconvergence'] = False
+#stokes_params['newton_solver']['linear_solver']           = 'mumps'
+#stokes_params['newton_solver']['preconditioner']          = 'default'
 parameters['form_compiler']['quadrature_degree']          = 2
 
 r             = 1.0
@@ -104,9 +103,7 @@ x             = SpatialCoordinate(mesh)
 
 # initialize the temperature :
 T     = Function(Q)
-Ttemp = T.vector().get_local()
-Ttemp[:] = 268.0
-T.vector().set_local(Ttemp)
+T.vector()[:] = 268.0
   
 # initialize the bed friction coefficient :
 beta2 = Function(Q)
