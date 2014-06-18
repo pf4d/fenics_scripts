@@ -34,6 +34,7 @@ u_n  = project(u - 10.0, V)
 # reset the solution :
 u_v = u_n.vector().array()
 u.vector().set_local(u_v)
+u.vector().apply('')
 
 File('output/u.pvd') << project(u, V)
 
