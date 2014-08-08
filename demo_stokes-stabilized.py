@@ -87,6 +87,7 @@ class Bed(Expression):
 
 S = Surface(element = scalar.ufl_element())
 B = Bed(element = scalar.ufl_element())
+H = S - B
 
 xmin = 0
 xmax = L
@@ -119,7 +120,7 @@ for x,x0 in zip(mesh.coordinates(), flat_mesh.coordinates()):
 
 # Create functions for boundary conditions
 noslip = Constant((0, 0, 0))
-inflow = Expression(("-sin(x[1]*pi)", "0", "0"))
+inflow = Expression(("-sin(2*x[1]*pi/L)", "0", "0"), L=L)
 zero   = Constant(0)
 
 # No-slip boundary condition for velocity
@@ -129,7 +130,7 @@ bc0 = DirichletBC(system.sub(0), noslip, ff, 3)
 bc1 = DirichletBC(system.sub(0), inflow, ff, 4)
 
 # Boundary condition for pressure at outflow
-bc2 = DirichletBC(system.sub(1), zero, ff, 5)
+bc2 = DirichletBC(system.sub(1), zero, ff, 2)
 
 # Collect boundary conditions
 bcs = [bc0, bc1, bc2]
@@ -160,16 +161,59 @@ bcs = [bc0, bc1, bc2]
 #                                             {"relative_tolerance": 1e-16,
 #                                              "absolute_tolerance": 1e-21}})
 #u, p = w.split()
+#
+#(v, q) = TestFunctions(system)
+#(u, p) = TrialFunctions(system)
+#f      = Constant((0, 0, 0))
+#h      = CellSize(mesh)
+#beta   = 0.2
+#delta  = beta*h*h
+#a      = (inner(grad(v), grad(u)) - div(v)*p + q*div(u) + \
+#         delta*inner(grad(q), grad(p)))*dx
+#L      = inner(v + delta*grad(q), f)*dx
 
 (v, q) = TestFunctions(system)
 (u, p) = TrialFunctions(system)
-f = Constant((0, 0, 0))
-h = CellSize(mesh)
+
+#eta    = 1e6
+#rho    = 917.0
+#g      = 9.81
+#epsdot = 0.5 * (grad(u) + grad(u).T)
+#tau    = 2 * eta * epsdot
+#
+#tau_xx = tau[0,0]
+#tau_yy = tau[1,1]
+#tau_xy = tau[0,1]
+#tau_yx = tau_xy
+#tau_xz = tau[0,2]
+#tau_yz = tau[1,2]
+#tau_zz = tau[2,2]
+#
+#epi_1  = as_vector([2*tau_xx + tau_yy, 
+#                    tau_xy,
+#                    tau_xz])
+#epi_2  = as_vector([2*tau_yy + tau_xx,
+#                    tau_yx,
+#                    tau_yz])
+#
+#f     = rho * g * grad(S)
+
+eta    = 1e6
+rho    = 917.0
+g      = as_vector([0, 0, -9.81])
+epsdot = (grad(u) + grad(u).T)
+tau    = eta * epsdot
+
+
+h     = CellSize(mesh)
 beta  = 0.2
 delta = beta*h*h
-a = (inner(grad(v), grad(u)) - div(v)*p + q*div(u) + \
-    delta*inner(grad(q), grad(p)))*dx
-L = inner(v + delta*grad(q), f)*dx
+
+f     = rho * g
+
+a     = (inner(grad(v), tau) - div(v)*p + q*div(u) + \
+        delta*inner(grad(q), grad(p)))*dx
+L     = inner(v + delta*grad(q), f)*dx
 
 # Compute solution
 w = Function(system)
