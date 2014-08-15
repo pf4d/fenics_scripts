@@ -58,9 +58,22 @@ def extrude(f, b, d, Q, ff):
   solve(a == L, v, bc)
   return v
 
-nx      = 40
-ny      = 40
-nz      = 5
+def strain_rate(U):
+  """
+  return the strain-rate tensor of <U>.
+  """
+  u,v,w = split(U)
+  epi   = 0.5 * (grad(U) + grad(U).T)
+  epi02 = 0.5*u.dx(2)
+  epi12 = 0.5*v.dx(2)
+  epsdot = as_matrix([[epi[0,0],  epi[0,1],  epi02   ],
+                      [epi[1,0],  epi[1,1],  epi12   ],
+                      [epi02,     epi12,     epi[2,2]]])
+  return epsdot
+ 
+nx      = 80
+ny      = 80
+nz      = 10
 mesh    = UnitCubeMesh(nx,ny,nz)
 
 # Define function spaces
@@ -105,9 +118,10 @@ dNth   = ds(5)
 dSth   = ds(6)
 dGamma = dEst + dWst + dNth + dSth
 
-alpha   = 0.5 * pi / 180
-L       = 5000.0
-S0      = 200.0
+alpha   = 1.0 * pi / 180
+L       = 40000.0
+S0      = 1000.0
+bm      = 200.0
 
 class Surface(Expression):
   def eval(self,values,x):
@@ -128,7 +142,7 @@ D = Depth(element = Q.ufl_element())
 
 class Beta(Expression):
   def eval(self, values, x):
-    values[0] = 500 + 500 * sin(2*pi*x[0]/L) * sin(2*pi*x[1]/L)
+    values[0] = bm - bm * sin(2*pi*x[0]/L) * sin(2*pi*x[1]/L)
 beta = Beta(element = Q.ufl_element())
 
 xmin = -L
@@ -154,34 +168,40 @@ for x in mesh.coordinates():
 
   # transform z :
   # thickness = surface - base, z = thickness + base
-  x[2]  = x[2] * (S(x[0], x[1], x[2]) - \
-                  B(x[0], x[1], x[2]))
-  x[2]  = x[2] + B(x[0], x[1], x[2])
+  x[2]  = x[2] * (S(x[0], x[1], x[2]) - B(x[0], x[1], x[2]))
+  x[2]  = x[2] +  B(x[0], x[1], x[2])
 
 # constants :
-eta    = 1e8
 rho    = 917.0
 rho_w  = 1000.0
 g      = 9.81
+gamma  = 8.71e-4
+E      = 1.0
+R      = 8.314
+n      = 3.0
+T      = 250.0
 x      = SpatialCoordinate(mesh)
 N      = FacetNormal(mesh)
+h      = CellSize(mesh)
 
 # solver parameters :
-parameters['form_compiler']['quadrature_degree'] = 3
+parameters['form_compiler']['quadrature_degree'] = 2
 params = {"newton_solver":
-         {"relative_tolerance": 1e-6,
-          "absolute_tolerance": 1e-21}}
+         {"maximum_iterations"   : 25,
+          "relaxation_parameter" : 0.8,
+          "relative_tolerance"   : 1e-4,
+          "absolute_tolerance"   : 1e-16}}
 
 # create functions for boundary conditions :
 noslip = Constant((0, 0, 0))
-inflow = Expression(("50*sin(x[1]*pi/L)", "0", "0"), L=L)
+inflow = Expression(("200*sin(x[1]*pi/L)", "0", "0"), L=L)
 f_w    = rho*g*(S - x[2]) + rho_w*g*D
 
-## boundary condition for velocity :
-#bc1 = DirichletBC(V, noslip, ff, 5)
-#bc2 = DirichletBC(V, noslip, ff, 6)
-#bc3 = DirichletBC(V, inflow, ff, 3)
-#bcs = [bc1, bc2, bc3]
+# boundary condition for velocity :
+bc1 = DirichletBC(V, noslip, ff, 5)
+bc2 = DirichletBC(V, noslip, ff, 6)
+bc3 = DirichletBC(V, inflow, ff, 3)
+bcs = [bc1, bc2, bc3]
 bcs = []
 
 #===============================================================================
@@ -192,6 +212,30 @@ u,v,w = split(U)
 dU    = TrialFunction(V)
 Phi   = TestFunction(V)
 phi, psi, chi = split(Phi)
+
+Unorm  = sqrt(dot(U, U) + DOLFIN_EPS)
+phihat = phi + h/(2*Unorm) * dot(U, grad(phi))
+psihat = psi + h/(2*Unorm) * dot(U, grad(psi))
+chihat = chi + h/(2*Unorm) * dot(U, grad(chi))
+Phihat = as_vector([phihat, psihat, chihat])
+ 
+# rate-factor :
+Tstar = T + gamma * (S - x[2])
+a_T   = conditional( lt(Tstar, 263.15), 1.1384496e-5, 5.45e10)
+Q_T   = conditional( lt(Tstar, 263.15), 6e4,          13.9e4)
+A     = E * a_T * exp( -Q_T / (R * Tstar))
+b     = A**(-1/n)
+
+# Second invariant of the strain rate tensor squared
+epi   = strain_rate(U)
+ep_xx = epi[0,0]
+ep_yy = epi[1,1]
+ep_xy = epi[0,1]
+ep_xz = epi[0,2]
+ep_yz = epi[1,2]
+
+epsdot = ep_xx**2 + ep_yy**2 + ep_xx*ep_yy + ep_xy**2 + ep_xz**2 + ep_yz**2
+eta    = 0.5 * b * (epsdot + 1e-10)**((1-n)/(2*n))
 
 epi_1  = as_vector([   2*u.dx(0) + v.dx(1), 
                     0.5*(u.dx(1) + v.dx(0)),
@@ -208,7 +252,7 @@ F = + 2 * eta * dot(epi_1, grad(phi)) * dx \
     + beta**2 * dot(U, Phi) * dBed \
     - f_w * dot(N, Phi) * dGamma \
     + div(U) * chi * dx \
-    + (u*B.dx(0) + v*B.dx(1) + w) * chi * dBed
+    + (u*B.dx(0) + v*B.dx(1) - w) * chi * dBed
 
 # Jacobian :
 J = derivative(F, U, dU)
@@ -216,107 +260,9 @@ J = derivative(F, U, dU)
 # compute solution :
 solve(F == 0, U, bcs, J=J, solver_parameters=params)
 
-#===============================================================================
-# solve stress-balance in cartesian :
-phi    = TestFunction(Q)
-dtau   = TrialFunction(Q)
+File("output/U.pvd")    << U
+File("output/beta.pvd") << interpolate(beta, Q)
 
-tau_dx = phi * rho * g * gradS[0] * dx
-tau_dy = phi * rho * g * gradS[1] * dx
-tau_dz = phi * rho * g * gradS[2] * dx
-
-tau_bx = beta**2 * u * phi * dBed
-tau_by = beta**2 * v * phi * dBed
-tau_bz = beta**2 * w * phi * dBed
-
-tau_px = - f_w * N[0] * phi * dGamma
-tau_py = - f_w * N[1] * phi * dGamma
-tau_pz = - f_w * N[2] * phi * dGamma
-
-tau_xx = 2 * eta * epi_1[0] * phi.dx(0) * dx
-tau_xy = 2 * eta * epi_1[1] * phi.dx(1) * dx
-tau_xz = 2 * eta * epi_1[2] * phi.dx(2) * dx
-
-tau_yx = 2 * eta * epi_2[0] * phi.dx(0) * dx
-tau_yy = 2 * eta * epi_2[1] * phi.dx(1) * dx
-tau_yz = 2 * eta * epi_2[2] * phi.dx(2) * dx
-
-# mass matrix :
-M = assemble(phi*dtau*dx)
-
-# assemble the vectors :
-tau_dx_v = assemble(tau_dx)
-tau_dy_v = assemble(tau_dy)
-tau_dz_v = assemble(tau_dz)
-tau_bx_v = assemble(tau_bx)
-tau_by_v = assemble(tau_by)
-tau_bz_v = assemble(tau_bz)
-tau_px_v = assemble(tau_px)
-tau_py_v = assemble(tau_py)
-tau_pz_v = assemble(tau_pz)
-tau_xx_v = assemble(tau_xx)
-tau_xy_v = assemble(tau_xy)
-tau_xz_v = assemble(tau_xz)
-tau_yx_v = assemble(tau_yx)
-tau_yy_v = assemble(tau_yy)
-tau_yz_v = assemble(tau_yz)
-
-# solution functions :
-tau_dx   = Function(Q)
-tau_dy   = Function(Q)
-tau_dz   = Function(Q)
-tau_bx   = Function(Q)
-tau_by   = Function(Q)
-tau_bz   = Function(Q)
-tau_px   = Function(Q)
-tau_py   = Function(Q)
-tau_pz   = Function(Q)
-tau_by   = Function(Q)
-tau_xx   = Function(Q)
-tau_xy   = Function(Q)
-tau_xz   = Function(Q)
-tau_yx   = Function(Q)
-tau_yy   = Function(Q)
-tau_yz   = Function(Q)
-
-# solve the linear system :
-solve(M, tau_dx.vector(), tau_dx_v)
-solve(M, tau_dy.vector(), tau_dy_v)
-solve(M, tau_dz.vector(), tau_dz_v)
-solve(M, tau_bx.vector(), tau_bx_v)
-solve(M, tau_by.vector(), tau_by_v)
-solve(M, tau_bz.vector(), tau_bz_v)
-solve(M, tau_px.vector(), tau_px_v)
-solve(M, tau_py.vector(), tau_py_v)
-solve(M, tau_pz.vector(), tau_pz_v)
-solve(M, tau_xx.vector(), tau_xx_v)
-solve(M, tau_xy.vector(), tau_xy_v)
-solve(M, tau_xz.vector(), tau_xz_v)
-solve(M, tau_yx.vector(), tau_yx_v)
-solve(M, tau_yy.vector(), tau_yy_v)
-solve(M, tau_yz.vector(), tau_yz_v)
-
-memb_1   = as_vector([tau_xx, tau_xy, tau_xz])
-memb_2   = as_vector([tau_yx, tau_yy, tau_yz])
-memb_x   = tau_xx + tau_xy + tau_xz
-memb_y   = tau_yx + tau_yy + tau_yz
-membrane = as_vector([memb_x, memb_y, 0.0])
-driving  = as_vector([tau_dx, tau_dy, tau_dz])
-basal    = as_vector([tau_bx, tau_by, tau_bz])
-pressure = as_vector([tau_px, tau_py, tau_pz])
-
-tot      = membrane + basal + pressure
-
-#===============================================================================
-# save solution in VTK format :
-File("output/memb_1.pvd")     << project(memb_1)
-File("output/memb_2.pvd")     << project(memb_2)
-File("output/membrane_c.pvd") << project(membrane)
-File("output/driving_c.pvd")  << project(driving)
-File("output/basal_c.pvd")    << project(basal)
-File("output/pressure_c.pvd") << project(pressure)
-File("output/total_c.pvd")    << project(tot)
-File("output/U.pvd")          << U
 
 #===============================================================================
 ## change to vertically-averaged variables in U-coordinate system :
@@ -437,8 +383,6 @@ File("output/U.pvd")          << U
 #
 #tot      = membrane + basal + pressure
 #
-##===============================================================================
-## save solution in VTK format :
 #File("output/U_bar.pvd")        << project(Ubar)
 #File("output/U_bar_s.pvd")      << project(U_s)
 #File("output/U_bar_n.pvd")      << project(U_n)
@@ -451,8 +395,9 @@ File("output/U.pvd")          << U
 #File("output/pressure_bar.pvd") << project(pressure)
 #File("output/total_bar.pvd")    << project(tot)
 
+
 #===============================================================================
-# change to U-coordinate system :
+# change to U-coordinate system, solve for directional derivative velocity :
 Q2 = MixedFunctionSpace([Q,Q])
 
 Phi      = TestFunction(Q2)
@@ -517,13 +462,21 @@ tau_tz = 2 * eta * epi_2[2] * gradpsi[2] * dx
 tau_n  = tau_nn + tau_nt + tau_nz + tau_bn + tau_pn - tau_dn
 tau_t  = tau_tn + tau_tt + tau_tz + tau_bt + tau_pt - tau_dt
 
-R   = tau_n + tau_t
-U_s = Function(Q2)
+delta  = tau_n + tau_t
+U_s    = Function(Q2)
 
-solve(lhs(R) == rhs(R), U_s)
+bc1 = DirichletBC(Q2, U, ff, 5)
+bc2 = DirichletBC(Q2, U, ff, 6)
+bc3 = DirichletBC(Q2, U, ff, 3)
+bcs = [bc1, bc2, bc3]
+bcs = []
+
+solve(lhs(delta) == rhs(delta), U_s, bcs)
 
 File('output/U_solve.pvd') << U_s
 
+#===============================================================================
+# solve with corrected velociites :
 phi     = TestFunction(Q)
 dtau    = TrialFunction(Q)
         
@@ -626,10 +579,8 @@ driving  = as_vector([tau_dn, tau_dt, 0.0])
 basal    = as_vector([tau_bn, tau_bt, 0.0])
 pressure = as_vector([tau_pn, tau_pt, 0.0])
 
-tot      = membrane + basal + pressure
+tot      = membrane + basal + pressure - driving
 
-#===============================================================================
-# save solution in VTK format :
 File("output/U_s.pvd")      << project(U_s)
 File("output/memb_n.pvd")   << project(memb_n)
 File("output/memb_t.pvd")   << project(memb_t)
