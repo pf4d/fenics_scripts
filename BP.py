@@ -71,9 +71,9 @@ def strain_rate(U):
                       [epi02,     epi12,     epi[2,2]]])
   return epsdot
  
-nx      = 80
-ny      = 80
-nz      = 10
+nx      = 40
+ny      = 40
+nz      = 5
 mesh    = UnitCubeMesh(nx,ny,nz)
 
 # Define function spaces
@@ -213,12 +213,6 @@ dU    = TrialFunction(V)
 Phi   = TestFunction(V)
 phi, psi, chi = split(Phi)
 
-Unorm  = sqrt(dot(U, U) + DOLFIN_EPS)
-phihat = phi + h/(2*Unorm) * dot(U, grad(phi))
-psihat = psi + h/(2*Unorm) * dot(U, grad(psi))
-chihat = chi + h/(2*Unorm) * dot(U, grad(chi))
-Phihat = as_vector([phihat, psihat, chihat])
- 
 # rate-factor :
 Tstar = T + gamma * (S - x[2])
 a_T   = conditional( lt(Tstar, 263.15), 1.1384496e-5, 5.45e10)
@@ -262,138 +256,6 @@ solve(F == 0, U, bcs, J=J, solver_parameters=params)
 
 File("output/U.pvd")    << U
 File("output/beta.pvd") << interpolate(beta, Q)
-
-
-#===============================================================================
-## change to vertically-averaged variables in U-coordinate system :
-#phi     = TestFunction(Q)
-#dtau    = TrialFunction(Q)
-#
-#H       = S - B
-#ubar    = vert_integrate(u, Q, ff) / H
-#ubar    = extrude(ubar, 1, 2, Q, ff)
-#vbar    = vert_integrate(v, Q, ff) / H
-#vbar    = extrude(vbar, 1, 2, Q, ff)
-#f_w_bar = rho*g*H + vert_integrate(rho_w*g*D, Q, ff) / H
-#        
-#Ubar    = as_vector([ubar,     vbar])
-#U_nm    = normalize_vector(Ubar)
-#Ubar    = as_vector([ubar,     vbar,    0.0])
-#U_n     = as_vector([U_nm[0],  U_nm[1], 0.0])
-#U_t     = as_vector([U_nm[1], -U_nm[0], 0.0])
-#
-#u_s     = dot(Ubar, U_n)
-#v_s     = dot(Ubar, U_t)
-#U_s     = as_vector([u_s,       v_s,       0.0])
-#gradu   = as_vector([u_s.dx(0), u_s.dx(1), 0.0])
-#gradv   = as_vector([v_s.dx(0), v_s.dx(1), 0.0])
-#dudn    = dot(gradu, U_n)
-#dudt    = dot(gradu, U_t)
-#dudz    = u_s.dx(2)
-#dvdn    = dot(gradv, U_n)
-#dvdt    = dot(gradv, U_t)
-#dvdz    = v_s.dx(2)
-#gradphi = grad(phi)
-#gradS   = grad(S)
-#dphidn  = dot(gradphi, U_n)
-#dphidt  = dot(gradphi, U_t)
-#gradphi = as_vector([dphidn,  dphidt, phi.dx(2)])
-#dSdn    = dot(gradS, U_n)
-#dSdt    = dot(gradS, U_t)
-#gradS   = as_vector([dSdn,  dSdt, S.dx(2)])
-#
-#epi_1  = as_vector([2*dudn + dvdt, 
-#                    0.5*(dudt + dvdn),
-#                    0.5*dudz             ])
-#epi_2  = as_vector([0.5*(dudt + dvdn),
-#                         dudn + 2*dvdt,
-#                    0.5*dvdz             ])
-#
-#tau_dn = phi * rho * g * H * gradS[0] * dx
-#tau_dt = phi * rho * g * H * gradS[1] * dx
-#
-#tau_bn = beta**2 * u_s * phi * dBed
-#tau_bt = beta**2 * v_s * phi * dBed
-#
-#tau_pn = - f_w_bar * dot(N, U_n) * phi * dGamma
-#tau_pt = - f_w_bar * dot(N, U_t) * phi * dGamma
-#
-#tau_nn = 2 * eta * H * epi_1[0] * gradphi[0] * dx
-#tau_nt = 2 * eta * H * epi_1[1] * gradphi[1] * dx
-#tau_nz = 2 * eta * H * epi_1[2] * gradphi[2] * dx
-#
-#tau_tn = 2 * eta * H * epi_2[0] * gradphi[0] * dx
-#tau_tt = 2 * eta * H * epi_2[1] * gradphi[1] * dx
-#tau_tz = 2 * eta * H * epi_2[2] * gradphi[2] * dx
-#
-## mass matrix :
-#M = assemble(phi*dtau*dx)
-#
-## assemble the vectors :
-#tau_dn_v = assemble(tau_dn)
-#tau_dt_v = assemble(tau_dt)
-#tau_bn_v = assemble(tau_bn)
-#tau_bt_v = assemble(tau_bt)
-#tau_pn_v = assemble(tau_pn)
-#tau_pt_v = assemble(tau_pt)
-#tau_nn_v = assemble(tau_nn)
-#tau_nt_v = assemble(tau_nt)
-#tau_nz_v = assemble(tau_nz)
-#tau_tn_v = assemble(tau_tn)
-#tau_tt_v = assemble(tau_tt)
-#tau_tz_v = assemble(tau_tz)
-#
-## solution functions :
-#tau_dn   = Function(Q)
-#tau_dt   = Function(Q)
-#tau_bn   = Function(Q)
-#tau_bt   = Function(Q)
-#tau_pn   = Function(Q)
-#tau_pt   = Function(Q)
-#tau_bt   = Function(Q)
-#tau_nn   = Function(Q)
-#tau_nt   = Function(Q)
-#tau_nz   = Function(Q)
-#tau_tn   = Function(Q)
-#tau_tt   = Function(Q)
-#tau_tz   = Function(Q)
-#
-## solve the linear system :
-#solve(M, tau_dn.vector(), tau_dn_v)
-#solve(M, tau_dt.vector(), tau_dt_v)
-#solve(M, tau_bn.vector(), tau_bn_v)
-#solve(M, tau_bt.vector(), tau_bt_v)
-#solve(M, tau_pn.vector(), tau_pn_v)
-#solve(M, tau_pt.vector(), tau_pt_v)
-#solve(M, tau_nn.vector(), tau_nn_v)
-#solve(M, tau_nt.vector(), tau_nt_v)
-#solve(M, tau_nz.vector(), tau_nz_v)
-#solve(M, tau_tn.vector(), tau_tn_v)
-#solve(M, tau_tt.vector(), tau_tt_v)
-#solve(M, tau_tz.vector(), tau_tz_v)
-#
-#memb_n   = as_vector([tau_nn, tau_nt, tau_nz])
-#memb_t   = as_vector([tau_tn, tau_tt, tau_tz])
-#memb_x   = tau_nn + tau_nt + tau_nz
-#memb_y   = tau_tn + tau_tt + tau_tz
-#membrane = as_vector([memb_x, memb_y, 0.0])
-#driving  = as_vector([tau_dn, tau_dt, 0.0])
-#basal    = as_vector([tau_bn, tau_bt, 0.0])
-#pressure = as_vector([tau_pn, tau_pt, 0.0])
-#
-#tot      = membrane + basal + pressure
-#
-#File("output/U_bar.pvd")        << project(Ubar)
-#File("output/U_bar_s.pvd")      << project(U_s)
-#File("output/U_bar_n.pvd")      << project(U_n)
-#File("output/U_bar_t.pvd")      << project(U_t)
-#File("output/memb_bar_n.pvd")   << project(memb_n)
-#File("output/memb_bar_t.pvd")   << project(memb_t)
-#File("output/membrane_bar.pvd") << project(membrane)
-#File("output/driving_bar.pvd")  << project(driving)
-#File("output/basal_bar.pvd")    << project(basal)
-#File("output/pressure_bar.pvd") << project(pressure)
-#File("output/total_bar.pvd")    << project(tot)
 
 
 #===============================================================================
@@ -473,7 +335,7 @@ bcs = []
 
 solve(lhs(delta) == rhs(delta), U_s, bcs)
 
-File('output/U_solve.pvd') << U_s
+#File('output/U_solve.pvd') << U_s
 
 #===============================================================================
 # solve with corrected velociites :
@@ -581,7 +443,7 @@ pressure = as_vector([tau_pn, tau_pt, 0.0])
 
 tot      = membrane + basal + pressure - driving
 
-File("output/U_s.pvd")      << project(U_s)
+#File("output/U_s.pvd")      << project(U_s)
 File("output/memb_n.pvd")   << project(memb_n)
 File("output/memb_t.pvd")   << project(memb_t)
 File("output/membrane.pvd") << project(membrane)
