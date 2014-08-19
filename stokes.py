@@ -62,13 +62,23 @@ def strain_rate(U):
   """
   return the strain-rate tensor of <U>.
   """
-  epsdot  = 0.5 * (grad(U) + grad(U).T)
+  u,v,w = U
+  epi   = 0.5 * (grad(U) + grad(U).T)
+  epi02 = 0.5*u.dx(2)
+  epi12 = 0.5*v.dx(2)
+  epsdot = as_matrix([[epi[0,0],  epi[0,1],  epi02   ],
+                      [epi[1,0],  epi[1,1],  epi12   ],
+                      [epi02,     epi12,     epi[2,2]]])
   return epsdot
  
-nx      = 40
-ny      = 40
+top     = Point(0.0, 0.0, 1.0)
+bot     = Point(0.0, 0.0, 0.0)
+cone    = Cone(top, bot, 1.0, 1.0)
+#mesh    = Mesh(cone,20)
+nx      = 20
+ny      = 20
 nz      = 5
-mesh    = UnitCubeMesh(nx,ny,nz)
+mesh    = BoxMesh(-1,-1, 0, 1, 1, 1, nx,ny,nz)
 
 # Define function spaces
 Q  = FunctionSpace(mesh, "CG", 1)
@@ -80,54 +90,38 @@ ff = FacetFunction('size_t', mesh, 0)
 #
 #   1 = high slope, upward facing ................ surface
 #   2 = high slope, downward facing .............. base
-#   3 = low slope, upward or downward facing ..... east side
-#   4 = low slope, upward or downward facing ..... west side
-#   5 = low slope, upward or downward facing ..... north side
-#   6 = low slope, upward or downward facing ..... south side
+#   3 = low slope, upward or downward facing ..... side
 for f in facets(mesh):
   n       = f.normal()    # unit normal vector to facet f
-  tol     = 1e-3
+  tol     = 1.0
   if   n.z() >=  tol and f.exterior():
     ff[f] = 1
   elif n.z() <= -tol and f.exterior():
     ff[f] = 2
-  elif n.z() >  -tol and n.z() < tol  and f.exterior() \
-                     and n.x() > tol  and n.y() < tol :
+  elif abs(n.z()) < tol and f.exterior():
     ff[f] = 3
-  elif n.z() >  -tol and n.z() < tol  and f.exterior() \
-                     and n.x() < -tol and n.y() < tol :
-    ff[f] = 4
-  elif n.z() >  -tol and n.z() < tol  and f.exterior() \
-                     and n.x() < tol  and n.y() > tol :
-    ff[f] = 5
-  elif n.z() >  -tol and n.z() < tol  and f.exterior() \
-                     and n.x() < tol  and n.y() < -tol :
-    ff[f] = 6
 
 ds     = Measure('ds')[ff]
 dSrf   = ds(1)
 dBed   = ds(2)
-dEst   = ds(3)
-dWst   = ds(4)
-dNth   = ds(5)
-dSth   = ds(6)
-dGamma = dEst + dWst + dNth + dSth
+dGamma = ds(3)
 
-alpha   = 1.0 * pi / 180
-L       = 40000.0
-S0      = 1000.0
-bm      = 200.0
+L       = 40000.0 / 2
+S0      = 50.0
+bm      = 100.0
+
+def gauss(x, y, sigx, sigy):
+  return exp(-((x/(2*sigx))**2 + (y/(2*sigy))**2))
 
 class Surface(Expression):
   def eval(self,values,x):
-    values[0] = S0 + x[0] * tan(alpha)
+    values[0] = S0 + 800*gauss(x[0], x[1], L/2, L/2)
 S = Surface(element = Q.ufl_element())
 
 class Bed(Expression):
   def eval(self,values,x):
-    values[0] = + S0 + x[0] * tan(alpha) \
-                - 1000.0 \
-                + 500.0 * sin(2*pi*x[0]/L) * sin(2*pi*x[1]/L)
+    values[0] = + S0 - 200.0 \
+                - 200.0 * gauss(x[0], x[1], L/2, L/2)
 B = Bed(element = Q.ufl_element())
 
 class Depth(Expression):
@@ -137,13 +131,13 @@ D = Depth(element = Q.ufl_element())
 
 class Beta(Expression):
   def eval(self, values, x):
-    values[0] = bm - bm * sin(2*pi*x[0]/L) * sin(2*pi*x[1]/L)
+    values[0] = bm * gauss(x[0], x[1], L/2, L/2)
 beta = Beta(element = Q.ufl_element())
 
 xmin = -L
-xmax = 0
+xmax = L
 ymin = -L
-ymax = 0
+ymax = L
 
 # width and origin of the domain for deforming x coord :
 width_x  = xmax - xmin
@@ -156,10 +150,10 @@ offset_y = ymin
 # Deform the square to the defined geometry :
 for x in mesh.coordinates():
   # transform x :
-  x[0]  = x[0]  * width_x + offset_x
+  x[0]  = x[0]  * width_x
 
   # transform y :
-  x[1]  = x[1]  * width_y + offset_y
+  x[1]  = x[1]  * width_y
 
   # transform z :
   # thickness = surface - base, z = thickness + base
@@ -167,12 +161,16 @@ for x in mesh.coordinates():
   x[2]  = x[2] +  B(x[0], x[1], x[2])
 
 # constants :
+p0     = 101325
+cp     = 1007
+T0     = 288.15
+M      = 0.0289644
 rho    = 917.0
 rho_w  = 1000.0
-g      = 9.81
+g      = 9.80665
 gamma  = 8.71e-4
 E      = 1.0
-R      = 8.314
+R      = 8.31447
 n      = 3.0
 T      = 250.0
 x      = SpatialCoordinate(mesh)
@@ -181,34 +179,37 @@ h      = CellSize(mesh)
 I      = Identity(3)
 
 # solver parameters :
-#parameters['form_compiler']['quadrature_degree'] = 2
+parameters['form_compiler']['quadrature_degree'] = 3
 params = {"newton_solver":
-         {"maximum_iterations"   : 25,
-          "relaxation_parameter" : 0.8,
-          "relative_tolerance"   : 1e-4,
+         {"linear_solver"        : 'mumps',
+          "preconditioner"       : 'default',
+          "maximum_iterations"   : 35,
+          "relaxation_parameter" : 1.0,
+          "relative_tolerance"   : 1e-3,
           "absolute_tolerance"   : 1e-16}}
 
 # create functions for boundary conditions :
-noslip = Constant((0, 0, 0))
-inflow = Expression(("200*sin(x[1]*pi/L)", "0", "0"), L=L)
+inflow = Expression("200*sin(x[1]*pi/L)", L=L)
 f_w    = rho*g*(S - x[2]) + rho_w*g*D
+p_a    = p0 * (1 - g*x[2]/(cp*T0))**(cp*M/R)
 
 # boundary condition for velocity :
-bc1 = DirichletBC(V, noslip, ff, 5)
-bc2 = DirichletBC(V, noslip, ff, 6)
-bc3 = DirichletBC(V, inflow, ff, 3)
-bcs = [bc1, bc2, bc3]
+bc1 = DirichletBC(W.sub(1),        0.0, ff, 1)  # pressure
+bc2 = DirichletBC(W.sub(0).sub(2), 0.0, ff, 1)  # w on surface
+
 bcs = []
 
 #===============================================================================
 # define variational problem :
 F   = Function(W)
 dU  = TrialFunction(W)
-Phi = TestFunction(V)
-xi  = TestFunction(Q)
+Tst = TestFunction(W)
 
-U,   P        = split(F)
-phi, psi, chi = split(Phi)
+U,   P  = split(F)
+Phi, xi = split(Tst)
+
+u,   v,   w   = U
+phi, psi, chi = Phi
 
 # rate-factor :
 Tstar = T + gamma * (S - x[2])
@@ -216,6 +217,9 @@ a_T   = conditional( lt(Tstar, 263.15), 1.1384496e-5, 5.45e10)
 Q_T   = conditional( lt(Tstar, 263.15), 6e4,          13.9e4)
 A     = E * a_T * exp( -Q_T / (R * Tstar))
 b     = A**(-1/n)
+
+# gravity vector :
+gv = as_vector([0, 0, -g])
 
 # Second invariant of the strain rate tensor squared
 epi   = strain_rate(U)
@@ -227,24 +231,38 @@ ep_yz = epi[1,2]
 
 epsdot = ep_xx**2 + ep_yy**2 + ep_xx*ep_yy + ep_xy**2 + ep_xz**2 + ep_yz**2
 eta    = 0.5 * b * (epsdot + 1e-10)**((1-n)/(2*n))
+eta    = 1e8
 
-sigma   = 2*eta*epi + P*I
+sigma   = 2*eta*epi - P*I
 
-R = + dot(sigma[0], grad(phi)) * dx \
-    + dot(sigma[1], grad(psi)) * dx \
-    + dot(sigma[2], grad(chi)) * dx \
-    + rho * g * Phi * dx \
-    + beta**2 * dot(U, Phi) * dBed \
-    - f_w * dot(N, Phi) * dGamma \
-    + xi * div(U) * dx \
+# conservation of momentum :
+R1 = + dot(sigma[0,:], grad(phi)) * dx \
+     + dot(sigma[1,:], grad(psi)) * dx \
+     + dot(sigma[2,:], grad(chi)) * dx \
+     + rho * dot(gv, Phi) * dx \
+     + beta**2 * dot(U, Phi) * dBed \
+     - f_w * dot(N, Phi) * dGamma \
+     - p_a * dot(N, Phi) * dSrf \
+
+# conservation of mass :
+R2 = + div(U) * xi * dx \
+#     - dot(U,N) * xi * (dBed + dSrf + dGamma) \
+#     + (u*B.dx(0) + v*B.dx(1) - w) * xi * dBed \
+#     + (u*S.dx(0) + v*S.dx(1) - w) * xi * dSrf \
+
+# total residual :
+R = R1 + R2
 
 # Jacobian :
-J = derivative(R, U, dU)
+J = derivative(R, F, dU)
 
 # compute solution :
 solve(R == 0, F, bcs, J=J, solver_parameters=params)
 
-File("output/U.pvd")    << U
+File("output/U.pvd")    << project(U)
+File("output/P.pvd")    << project(P)
+File("output/divU.pvd") << project(div(U))
+File("output/beta.pvd") << interpolate(beta,Q)
 
 
 

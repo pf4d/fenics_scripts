@@ -71,8 +71,8 @@ def strain_rate(U):
                       [epi02,     epi12,     epi[2,2]]])
   return epsdot
  
-nx      = 40
-ny      = 40
+nx      = 20
+ny      = 20
 nz      = 5
 mesh    = UnitCubeMesh(nx,ny,nz)
 
@@ -202,7 +202,6 @@ bc1 = DirichletBC(V, noslip, ff, 5)
 bc2 = DirichletBC(V, noslip, ff, 6)
 bc3 = DirichletBC(V, inflow, ff, 3)
 bcs = [bc1, bc2, bc3]
-bcs = []
 
 #===============================================================================
 # define variational problem :
@@ -230,6 +229,7 @@ ep_yz = epi[1,2]
 
 epsdot = ep_xx**2 + ep_yy**2 + ep_xx*ep_yy + ep_xy**2 + ep_xz**2 + ep_yz**2
 eta    = 0.5 * b * (epsdot + 1e-10)**((1-n)/(2*n))
+eta    = 1e8
 
 epi_1  = as_vector([   2*u.dx(0) + v.dx(1), 
                     0.5*(u.dx(1) + v.dx(0)),
