@@ -77,7 +77,7 @@ cone    = Cone(top, bot, 1.0, 1.0)
 #mesh    = Mesh(cone,20)
 nx      = 20
 ny      = 20
-nz      = 5
+nz      = 10
 mesh    = BoxMesh(-1,-1, 0, 1, 1, 1, nx,ny,nz)
 
 # Define function spaces
@@ -185,7 +185,7 @@ params = {"newton_solver":
           "preconditioner"       : 'default',
           "maximum_iterations"   : 35,
           "relaxation_parameter" : 1.0,
-          "relative_tolerance"   : 1e-3,
+          "relative_tolerance"   : 1e-9,
           "absolute_tolerance"   : 1e-16}}
 
 # create functions for boundary conditions :
@@ -246,9 +246,9 @@ R1 = + dot(sigma[0,:], grad(phi)) * dx \
 
 # conservation of mass :
 R2 = + div(U) * xi * dx \
-#     - dot(U,N) * xi * (dBed + dSrf + dGamma) \
 #     + (u*B.dx(0) + v*B.dx(1) - w) * xi * dBed \
-#     + (u*S.dx(0) + v*S.dx(1) - w) * xi * dSrf \
+#     - dot(U,N) * xi * (dBed + dSrf + dGamma) \
+#     - (u*S.dx(0) + v*S.dx(1) - w) * xi * dSrf \
 
 # total residual :
 R = R1 + R2
