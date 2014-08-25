@@ -49,5 +49,5 @@ u = Function(V)
 solve(a == L, u, bc)
 
 # Save solution in VTK format
-File("poisson.pvd") << u
+File("output/poisson.pvd") << u
 

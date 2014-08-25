@@ -58,7 +58,7 @@ def extrude(f, b, d, Q, ff):
   solve(a == L, v, bc)
   return v
 
-def strain_rate(U):
+def epsilon(U):
   """
   return the strain-rate tensor of <U>.
   """
@@ -70,6 +70,15 @@ def strain_rate(U):
                       [epi[1,0],  epi[1,1],  epi12   ],
                       [epi02,     epi12,     epi[2,2]]])
   return epsdot
+
+def sigma(U,p,eta):
+  """
+  return the cauchy stress-tensor of velocity <U>, pressure <p>, and 
+  kinematic viscosity <eta>.
+  """
+  I   = Identity(3)
+  epi = epsilon(U)
+  return 2*eta*epi - p*I
  
 top     = Point(0.0, 0.0, 1.0)
 bot     = Point(0.0, 0.0, 0.0)
@@ -77,7 +86,7 @@ cone    = Cone(top, bot, 1.0, 1.0)
 #mesh    = Mesh(cone,20)
 nx      = 20
 ny      = 20
-nz      = 10
+nz      = 4
 #mesh    = BoxMesh(-1,-1, 0, 1, 1, 1, nx,ny,nz)
 mesh    = Mesh('meshes/unit_cyl_mesh.xml')
 
@@ -102,10 +111,11 @@ for f in facets(mesh):
   elif abs(n.z()) < tol and f.exterior():
     ff[f] = 3
 
-ds     = Measure('ds')[ff]
-dSrf   = ds(1)
-dBed   = ds(2)
-dGamma = ds(3)
+ds       = Measure('ds')[ff]
+dSrf     = ds(1)
+dBed     = ds(2)
+dGamma   = ds(3)
+dGamma_d = dSrf + dBed
 
 L       = 40000.0 / 2
 S0      = 50.0
@@ -173,9 +183,10 @@ gamma  = 8.71e-4
 E      = 1.0
 R      = 8.31447
 n      = 3.0
-T      = 250.0
+theta  = 250.0
 x      = SpatialCoordinate(mesh)
 N      = FacetNormal(mesh)
+T      = as_vector([N[1], -N[0]])
 h      = CellSize(mesh)
 I      = Identity(3)
 
@@ -186,7 +197,7 @@ params = {"newton_solver":
           "preconditioner"       : 'default',
           "maximum_iterations"   : 35,
           "relaxation_parameter" : 1.0,
-          "relative_tolerance"   : 1e-4,
+          "relative_tolerance"   : 1e-2,
           "absolute_tolerance"   : 1e-16}}
 
 # create functions for boundary conditions :
@@ -213,7 +224,7 @@ u,   v,   w   = U
 phi, psi, chi = Phi
 
 # rate-factor :
-Tstar = T + gamma * (S - x[2])
+Tstar = theta + gamma * (S - x[2])
 a_T   = conditional( lt(Tstar, 263.15), 1.1384496e-5, 5.45e10)
 Q_T   = conditional( lt(Tstar, 263.15), 6e4,          13.9e4)
 A     = E * a_T * exp( -Q_T / (R * Tstar))
@@ -223,7 +234,7 @@ b     = A**(-1/n)
 gv = as_vector([0, 0, -g])
 
 # Second invariant of the strain rate tensor squared
-epi   = strain_rate(U)
+epi   = epsilon(U)
 ep_xx = epi[0,0]
 ep_yy = epi[1,1]
 ep_xy = epi[0,1]
@@ -234,23 +245,21 @@ epsdot = ep_xx**2 + ep_yy**2 + ep_xx*ep_yy + ep_xy**2 + ep_xz**2 + ep_yz**2
 eta    = 0.5 * b * (epsdot + 1e-10)**((1-n)/(2*n))
 eta    = 1e8
 
-sigma   = 2*eta*epi - P*I
+t      = sigma(U,P,eta)
+s      = sigma(Phi,xi,eta)
+
+alpha  = 500
 
 # conservation of momentum :
-R1 = + inner(sigma, grad(Phi)) * dx \
-     + rho * dot(gv, Phi) * dx \
-     + beta**2 * dot(U, Phi) * dBed \
-     - f_w * dot(N, Phi) * dGamma \
-     - p_a * dot(N, Phi) * dSrf \
-
-# conservation of mass :
-R2 = + div(U) * xi * dx \
-#     + (u*B.dx(0) + v*B.dx(1) - w) * xi * dBed \
-#     - dot(U,N) * xi * (dBed + dSrf + dGamma) \
-#     - (u*S.dx(0) + v*S.dx(1) - w) * xi * dSrf \
-
-# total residual :
-R = R1 + R2
+R = + inner(epsilon(Phi),t) * dx \
+    + div(U) * xi * dx \
+    - dot(Phi, N) * dot(N, dot(t, N)) * dGamma_d \
+    - dot(U, N) * dot(N, dot(s, N)) * dGamma_d \
+    + alpha * dot(Phi, N) * dot(U, N) * dGamma_d \
+    + rho * dot(gv, Phi) * dx \
+    + beta**2 * dot(U, Phi) * dBed \
+    - p_a * dot(N, Phi) * dSrf \
+    - f_w * dot(N, Phi) * dGamma \
 
 # Jacobian :
 J = derivative(R, F, dU)

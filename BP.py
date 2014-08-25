@@ -78,7 +78,8 @@ cone    = Cone(top, bot, 1.0, 1.0)
 nx      = 40
 ny      = 40
 nz      = 5
-mesh    = BoxMesh(-1,-1, 0, 1, 1, 1, nx,ny,nz)
+#mesh    = BoxMesh(-1,-1, 0, 1, 1, 1, nx,ny,nz)
+mesh    = Mesh('meshes/unit_cyl_mesh.xml')
 
 # Define function spaces
 Q  = FunctionSpace(mesh, "CG", 1)

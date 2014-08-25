@@ -1,7 +1,7 @@
 from dolfin import *
 
 # Create mesh and define function space
-mesh = UnitSquareMesh(32, 32)
+mesh = UnitSquareMesh(50, 50)#32, 32)
 V    = FunctionSpace(mesh, "Lagrange", 1)
 ff   = FacetFunction('size_t', mesh, 0)
 
@@ -50,12 +50,13 @@ B = PETScMatrix()
 
 A = assemble(a, tensor=A)
 B = assemble(b, tensor=B)
-
 eigensolver = SLEPcEigenSolver(A,B)
+eigensolver.parameters['solver'] = 'arnoldi'
 eigensolver.solve()
+
 C = eigensolver.get_eigenvalue()[0]
 
-beta = 2*C**2 + 1e-1
+beta = 2*C**2
 
 a = + inner(grad(u), grad(v))*dx \
     - v*dot(grad(u), N)*dGamma_d \
@@ -71,5 +72,5 @@ u = Function(V)
 solve(a == L, u)
 
 # Save solution in VTK format
-File("poisson.pvd") << u
+File("output/nitsche_poisson.pvd") << u
 
