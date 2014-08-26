@@ -233,6 +233,7 @@ epi_2  = as_vector([0.5*(u.dx(1) + v.dx(0)),
                          u.dx(0) + 2*v.dx(1),
                     0.5* v.dx(2)            ])
 gradS  = grad(S)
+beta   = Constant(1e5)
 
 # residual :
 R1 = + 2 * eta * dot(epi_1, grad(phi)) * dx \
@@ -254,7 +255,7 @@ J = derivative(R, U, dU)
 # compute solution :
 solve(R == 0, U, bcs, J=J, solver_parameters=params)
 
-File("output/U.pvd")    << U
+File("output/U.pvd")    << project(as_vector([U[0], U[1]]))
 File("output/beta.pvd") << interpolate(beta, Q)
 File("output/divU.pvd") << project(div(U))
 

@@ -235,6 +235,7 @@ eta    = 0.5 * b * (epsdot + 1e-10)**((1-n)/(2*n))
 eta    = 1e8
 
 sigma   = 2*eta*epi - P*I
+beta   = Constant(1e5)
 
 # conservation of momentum :
 R1 = + inner(sigma, grad(Phi)) * dx \
@@ -258,7 +259,7 @@ J = derivative(R, F, dU)
 # compute solution :
 solve(R == 0, F, bcs, J=J, solver_parameters=params)
 
-File("output/U.pvd")    << project(U)
+File("output/U.pvd")    << project(as_vector([U[0], U[1]]))
 File("output/P.pvd")    << project(P)
 File("output/divU.pvd") << project(div(U))
 File("output/beta.pvd") << interpolate(beta,Q)

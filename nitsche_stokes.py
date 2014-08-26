@@ -217,6 +217,7 @@ F   = Function(W)
 dU  = TrialFunction(W)
 Tst = TestFunction(W)
 
+du,  dp = split(dU)
 U,   P  = split(F)
 Phi, xi = split(Tst)
 
@@ -248,7 +249,22 @@ eta    = 1e8
 t      = sigma(U,P,eta)
 s      = sigma(Phi,xi,eta)
 
-alpha  = 500
+#a = dot(grad(xi), N) * dot(grad(dp), N) * ds
+#b = inner(grad(xi), grad(dp)) * dx
+#
+#A = PETScMatrix()
+#B = PETScMatrix()
+#
+#A = assemble(a, tensor=A)
+#B = assemble(b, tensor=B)
+#eigensolver = SLEPcEigenSolver(A,B)
+#eigensolver.solve()
+#
+#C = eigensolver.get_eigenvalue()[0]
+
+C      = 100
+alpha  = 2 * C**2
+#beta   = Constant(1e5)
 
 # conservation of momentum :
 R = + inner(epsilon(Phi),t) * dx \
@@ -267,7 +283,7 @@ J = derivative(R, F, dU)
 # compute solution :
 solve(R == 0, F, bcs, J=J, solver_parameters=params)
 
-File("output/U.pvd")    << project(U)
+File("output/U.pvd")    << project(as_vector([U[0], U[1]]))
 File("output/P.pvd")    << project(P)
 File("output/divU.pvd") << project(div(U))
 File("output/beta.pvd") << interpolate(beta,Q)
