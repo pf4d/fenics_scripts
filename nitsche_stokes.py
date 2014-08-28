@@ -115,7 +115,7 @@ ds       = Measure('ds')[ff]
 dSrf     = ds(1)
 dBed     = ds(2)
 dGamma   = ds(3)
-dGamma_d = dSrf + dBed
+dG_0     = dBed
 
 L       = 40000.0 / 2
 S0      = 50.0
@@ -185,10 +185,6 @@ R      = 8.31447
 n      = 3.0
 theta  = 250.0
 x      = SpatialCoordinate(mesh)
-N      = FacetNormal(mesh)
-T      = as_vector([N[1], -N[0]])
-h      = CellSize(mesh)
-I      = Identity(3)
 
 # solver parameters :
 parameters['form_compiler']['quadrature_degree'] = 3
@@ -197,28 +193,17 @@ params = {"newton_solver":
           "preconditioner"       : 'default',
           "maximum_iterations"   : 35,
           "relaxation_parameter" : 1.0,
-          "relative_tolerance"   : 1e-2,
+          "relative_tolerance"   : 1e-3,
           "absolute_tolerance"   : 1e-16}}
-
-# create functions for boundary conditions :
-inflow = Expression("200*sin(x[1]*pi/L)", L=L)
-f_w    = rho*g*(S - x[2]) + rho_w*g*D
-p_a    = p0 * (1 - g*x[2]/(cp*T0))**(cp*M/R)
-
-# boundary condition for velocity :
-bc1 = DirichletBC(W.sub(1),        0.0, ff, 1)  # pressure
-bc2 = DirichletBC(W.sub(0).sub(2), 0.0, ff, 1)  # w on surface
-
-bcs = []
 
 #===============================================================================
 # define variational problem :
-F   = Function(W)
+G   = Function(W)
 dU  = TrialFunction(W)
 Tst = TestFunction(W)
 
 du,  dp = split(dU)
-U,   P  = split(F)
+U,   p  = split(G)
 Phi, xi = split(Tst)
 
 u,   v,   w   = U
@@ -231,8 +216,12 @@ Q_T   = conditional( lt(Tstar, 263.15), 6e4,          13.9e4)
 A     = E * a_T * exp( -Q_T / (R * Tstar))
 b     = A**(-1/n)
 
-# gravity vector :
-gv = as_vector([0, 0, -g])
+gv  = as_vector([0, 0, g])
+f_w = rho*g*(S - x[2]) + rho_w*g*D
+p_a = p0 * (1 - g*x[2]/(cp*T0))**(cp*M/R)
+u_n = Constant(0.0)
+u_0 = as_vector([0.0,0.0,0.0])
+p_0 = Constant(0.0)
 
 # Second invariant of the strain rate tensor squared
 epi   = epsilon(U)
@@ -244,10 +233,15 @@ ep_yz = epi[1,2]
 
 epsdot = ep_xx**2 + ep_yy**2 + ep_xx*ep_yy + ep_xy**2 + ep_xz**2 + ep_yz**2
 eta    = 0.5 * b * (epsdot + 1e-10)**((1-n)/(2*n))
-eta    = 1e8
+eta    = Constant(1e8)
 
-t      = sigma(U,P,eta)
-s      = sigma(Phi,xi,eta)
+alpha = Constant(1./10)
+beta  = Constant(100)
+h     = CellSize(mesh)
+n     = FacetNormal(mesh)
+I     = Identity(3)
+fric  = Constant(1000.0)
+f     = rho*gv
 
 #a = dot(grad(xi), N) * dot(grad(dp), N) * ds
 #b = inner(grad(xi), grad(dp)) * dx
@@ -262,28 +256,37 @@ s      = sigma(Phi,xi,eta)
 #
 #C = eigensolver.get_eigenvalue()[0]
 
-C      = 100
-alpha  = 2 * C**2
-#beta   = Constant(1e5)
+def epsilon(u): return 0.5*(grad(u) + grad(u).T)
+def sigma(u,p): return 2*eta * epsilon(u) - p*I
+def L(u,p):     return -div(sigma(u,p))
 
-# conservation of momentum :
-R = + inner(epsilon(Phi),t) * dx \
-    + div(U) * xi * dx \
-    - dot(Phi, N) * dot(N, dot(t, N)) * dGamma_d \
-    - dot(U, N) * dot(N, dot(s, N)) * dGamma_d \
-    + alpha * dot(Phi, N) * dot(U, N) * dGamma_d \
-    + rho * dot(gv, Phi) * dx \
-    + beta**2 * dot(U, Phi) * dBed \
-    - p_a * dot(N, Phi) * dSrf \
-    - f_w * dot(N, Phi) * dGamma \
+B_o = + inner(sigma(U,p), grad(Phi)) * dx \
+      - div(U) * xi * dx \
+      - alpha * h**2 * inner(L(U,p), L(Phi,xi)) * dx \
 
-# Jacobian :
-J = derivative(R, F, dU)
+B_g = - dot(Phi,n) * dot(n, dot(sigma(U,p), n)) * dG_0 \
+      - dot(U,n) * dot(n, dot(sigma(Phi,xi), n)) * dG_0 \
+      - inner(dot(sigma(U,p), n), Phi) * dBed \
+      - inner(dot(sigma(Phi,xi), n), U) * dBed \
+      + beta/h * inner(Phi,U) * dBed \
+      + beta/h * p * xi * dSrf \
+      + beta/h * dot(U,n) * dot(Phi,n) * dG_0 \
+
+F   = + dot(f,Phi)*dx \
+      + alpha * h**2 * inner(f, L(Phi,xi)) * dx \
+      - inner(dot(sigma(Phi,xi), n), u_0) * dBed \
+      + beta/h * inner(Phi,u_0) * dBed \
+      + beta/h * p_0 * xi * dSrf \
+      + beta/h * u_n * dot(Phi,n) * dG_0 \
+
+R = B_o + B_g - F
+
+J = derivative(R, G, dU)
 
 # compute solution :
-solve(R == 0, F, bcs, J=J, solver_parameters=params)
+solve(R == 0, G, J=J, solver_parameters=params)
 
-File("output/U.pvd")    << project(as_vector([U[0], U[1]]))
+File("output/U.pvd")    << project(U)
 File("output/P.pvd")    << project(P)
 File("output/divU.pvd") << project(div(U))
 File("output/beta.pvd") << interpolate(beta,Q)

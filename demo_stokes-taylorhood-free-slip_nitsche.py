@@ -33,12 +33,12 @@ ds   = Measure('ds')[sub_domains]
 dG_0 = ds(0)
 dG_r = ds(1)
 dG_l = ds(2)
-dGamma = ds(0) + ds(1)
 
 # Define function spaces
 V = VectorFunctionSpace(mesh, "CG", 2)
 Q = FunctionSpace(mesh, "CG", 1)
-N = FacetNormal(mesh)
+n = FacetNormal(mesh)
+h = CellSize(mesh)
 I = Identity(2)
 W = V * Q
 
@@ -60,27 +60,28 @@ p0_l = Constant(0)
 
 f = Constant((0, 0))
 
-C_b   = 500
+C_b   = 5000
 beta  = 2 * C_b**2
 C_a   = 500
 alpha = 2 * C_a**2 
 C_d   = 500
 delta = 2 * C_d**2
  
+fric  = Constant(0.0)
+alpha = Constant(1./10)
+beta  = Constant(100)
 
 a = + inner(grad(u) - p*I, grad(v)) * dx \
     + q*div(u) * dx \
-    - inner(dot(grad(u), N), v) * (dG_r + dG_0) \
-    - inner(dot(grad(v), N), u) * (dG_r + dG_0) \
-    + beta**2*dot(v,N)*dot(u,N) * dG_0 \
-    + beta*inner(v,u) * dG_0 \
+    - inner(dot(grad(u), n), v) * dG_r \
+    - inner(dot(grad(v), n), u) * dG_r \
+    + fric**2 * dot(u, v) * dG_0 \
+    + beta/h*dot(v,n)*dot(u,n) * dG_0 \
     + delta*inner(v,u) * dG_r \
     + alpha*p*div(v) * dG_l \
 
 L = + inner(f, v)*dx \
-    - inner(dot(grad(v), N), u0_r) * dG_r \
-    - inner(dot(grad(v), N), u0_0) * dG_0 \
-    + beta*inner(u0_0,v) * dG_0 \
+    - inner(dot(grad(v), n), u0_r) * dG_r \
     + delta*inner(u0_r,v) * dG_r \
     + alpha*p0_l*div(v) * dG_l \
 
@@ -98,9 +99,23 @@ print "Norm of pressure coefficient vector: %.15g" % p.vector().norm("l2")
 # # Split the mixed solution using a shallow copy
 (u, p) = w.split()
 
+q = TestFunction(Q)
+t = TrialFunction(Q)
+
+nx = n[0] * q * (dG_0 + dG_r + dG_l) 
+ny = n[1] * q * (dG_0 + dG_r + dG_l) 
+nx_v = assemble(nx)
+ny_v = assemble(ny)
+
+M  = assemble(q*t*dx)
+nx = Function(Q)
+ny = Function(Q)
+solve(M, nx.vector(), ny_v)
+solve(M, ny.vector(), nx_v)
+
 # Save solution in VTK format
 File("output/v_nit.pvd") << u
 File("output/p_nit.pvd") << p
-
+File("output/n.pvd")     << project(as_vector([nx, ny]))
 
 

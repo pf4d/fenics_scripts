@@ -21,7 +21,7 @@ m.write_gmsh_contour(lc=0.1, boundary_extend=False)
 m.extrude(h=1, n_layers=10)
 m.add_edge_attractor(1)
 #field, ifield, lcMin, lcMax, distMin, distMax
-m.add_threshold(2, 1, 0.02, 0.1, 0, 0.5)
+m.add_threshold(2, 1, 0.2, 0.2, 0, 0.5)
 m.finish(4)
 
 

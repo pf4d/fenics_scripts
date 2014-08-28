@@ -205,6 +205,7 @@ u,v,w = split(U)
 
 dU    = TrialFunction(V)
 Phi   = TestFunction(V)
+
 phi, psi, chi = split(Phi)
 
 # rate-factor :
@@ -224,7 +225,7 @@ ep_yz = epi[1,2]
 
 epsdot = ep_xx**2 + ep_yy**2 + ep_xx*ep_yy + ep_xy**2 + ep_xz**2 + ep_yz**2
 eta    = 0.5 * b * (epsdot + 1e-10)**((1-n)/(2*n))
-eta    = Constant(1e8)
+eta    = 1e8
 
 epi_1  = as_vector([   2*u.dx(0) + v.dx(1), 
                     0.5*(u.dx(1) + v.dx(0)),
@@ -233,21 +234,20 @@ epi_2  = as_vector([0.5*(u.dx(1) + v.dx(0)),
                          u.dx(0) + 2*v.dx(1),
                     0.5* v.dx(2)            ])
 gradS  = grad(S)
+C      = 100
+alpha  = 2 * C**2
 beta   = Constant(1e5)
 
 # residual :
-R1 = + 2 * eta * dot(epi_1, grad(phi)) * dx \
-     + 2 * eta * dot(epi_2, grad(psi)) * dx \
-     + rho * g * gradS[0] * phi * dx \
-     + rho * g * gradS[1] * psi * dx \
-     + beta**2 * u * phi * dBed \
-     + beta**2 * v * psi * dBed \
-     - f_w * dot(N, Phi) * dGamma \
-
-R2 = + div(U) * chi * dx \
-     - (u*B.dx(0) + v*B.dx(1) - w) * chi * dBed \
-
-R = R1 + R2
+R = + 2 * eta * dot(epi_1, grad(phi)) * dx \
+    + 2 * eta * dot(epi_2, grad(psi)) * dx \
+    + div(U) * chi * dx \
+    + rho * g * gradS[0] * phi * dx \
+    + rho * g * gradS[1] * psi * dx \
+    + beta**2 * u * phi * dBed \
+    + beta**2 * v * psi * dBed \
+    - f_w * dot(N, Phi) * dGamma \
+    - alpha * dot(Phi, N) * dot(U, N) * (dSrf + dBed) \
 
 # Jacobian :
 J = derivative(R, U, dU)
@@ -255,7 +255,7 @@ J = derivative(R, U, dU)
 # compute solution :
 solve(R == 0, U, bcs, J=J, solver_parameters=params)
 
-File("output/U.pvd")    << U
+File("output/U.pvd")    << project(U)
 File("output/beta.pvd") << interpolate(beta, Q)
 File("output/divU.pvd") << project(div(U))
 

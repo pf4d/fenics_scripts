@@ -198,7 +198,7 @@ p_a    = p0 * (1 - g*x[2]/(cp*T0))**(cp*M/R)
 bc1 = DirichletBC(W.sub(1),        0.0, ff, 1)  # pressure
 bc2 = DirichletBC(W.sub(0).sub(2), 0.0, ff, 1)  # w on surface
 
-bcs = [bc1]
+bcs = [bc1, bc2]
 
 #===============================================================================
 # define variational problem :
@@ -232,7 +232,7 @@ ep_yz = epi[1,2]
 
 epsdot = ep_xx**2 + ep_yy**2 + ep_xx*ep_yy + ep_xy**2 + ep_xz**2 + ep_yz**2
 eta    = 0.5 * b * (epsdot + 1e-10)**((1-n)/(2*n))
-eta    = Constant(1e8)
+eta    = 1e8
 
 sigma   = 2*eta*epi - P*I
 beta   = Constant(1e5)
