@@ -91,9 +91,13 @@ nz      = 4
 mesh    = Mesh('meshes/unit_cyl_mesh.xml')
 
 # Define function spaces
+#Q  = FunctionSpace(mesh, "CG", 1)
+#V  = VectorFunctionSpace(mesh, "CG", 2)
+#W  = V * Q
+V  = VectorFunctionSpace(mesh, "CG", 1)
+B  = VectorFunctionSpace(mesh, "B", 4)
 Q  = FunctionSpace(mesh, "CG", 1)
-V  = VectorFunctionSpace(mesh, "CG", 2)
-W  = V * Q
+W  = (V + B)*Q
 ff = FacetFunction('size_t', mesh, 0)
 
 # iterate through the facets and mark each if on a boundary :
@@ -117,7 +121,7 @@ dBed     = ds(2)
 dGamma   = ds(3)
 dG_0     = dBed
 
-L       = 40000.0 / 2
+t       = 500000.0 / 2
 S0      = 50.0
 bm      = 100.0
 
@@ -126,13 +130,13 @@ def gauss(x, y, sigx, sigy):
 
 class Surface(Expression):
   def eval(self,values,x):
-    values[0] = S0 + 800*gauss(x[0], x[1], L/2, L/2)
+    values[0] = S0 + 3000*gauss(x[0], x[1], t/2, t/2)
 S = Surface(element = Q.ufl_element())
 
 class Bed(Expression):
   def eval(self,values,x):
-    values[0] = + S0 - 200.0 \
-                - 200.0 * gauss(x[0], x[1], L/2, L/2)
+    values[0] = - (S0 + 300.0) \
+                - 1000.0 * gauss(x[0], x[1], t/2, t/2)
 B = Bed(element = Q.ufl_element())
 
 class Depth(Expression):
@@ -142,13 +146,13 @@ D = Depth(element = Q.ufl_element())
 
 class Beta(Expression):
   def eval(self, values, x):
-    values[0] = bm * gauss(x[0], x[1], L/2, L/2)
+    values[0] = bm * gauss(x[0], x[1], t/2, t/2)
 beta = Beta(element = Q.ufl_element())
 
-xmin = -L
-xmax = L
-ymin = -L
-ymax = L
+xmin = -t
+xmax = t
+ymin = -t
+ymax = t
 
 # width and origin of the domain for deforming x coord :
 width_x  = xmax - xmin
@@ -220,7 +224,7 @@ gv  = as_vector([0, 0, g])
 f_w = rho*g*(S - x[2]) + rho_w*g*D
 p_a = p0 * (1 - g*x[2]/(cp*T0))**(cp*M/R)
 u_n = Constant(0.0)
-u_0 = as_vector([0.0,0.0,0.0])
+u_0 = Expression(("0.0","0.0","0.0"), element=V.ufl_element())
 p_0 = Constant(0.0)
 
 # Second invariant of the strain rate tensor squared
@@ -235,13 +239,17 @@ epsdot = ep_xx**2 + ep_yy**2 + ep_xx*ep_yy + ep_xy**2 + ep_xz**2 + ep_yz**2
 eta    = 0.5 * b * (epsdot + 1e-10)**((1-n)/(2*n))
 eta    = Constant(1e8)
 
-alpha = Constant(1./10)
-beta  = Constant(100)
+alpha = Constant(1.0/10)
+beta  = Constant(1000)
 h     = CellSize(mesh)
 n     = FacetNormal(mesh)
 I     = Identity(3)
 fric  = Constant(1000.0)
 f     = rho*gv
+
+bc2 = DirichletBC(W.sub(0), u_0, ff, 2)
+bc1 = DirichletBC(W.sub(1), p_0, ff, 1)
+bcs = [bc1]
 
 #a = dot(grad(xi), N) * dot(grad(dp), N) * ds
 #b = inner(grad(xi), grad(dp)) * dx
@@ -257,26 +265,23 @@ f     = rho*gv
 #C = eigensolver.get_eigenvalue()[0]
 
 def epsilon(u): return 0.5*(grad(u) + grad(u).T)
-def sigma(u,p): return 2*eta * epsilon(u) - p*I
+def sigma(u,p): return 2*eta*epsilon(u) - p*I
 def L(u,p):     return -div(sigma(u,p))
 
-B_o = + inner(sigma(U,p), grad(Phi)) * dx \
+B_o = + 2*eta*inner(epsilon(U), epsilon(Phi)) * dx \
       - div(U) * xi * dx \
       - alpha * h**2 * inner(L(U,p), L(Phi,xi)) * dx \
 
-B_g = - dot(Phi,n) * dot(n, dot(sigma(U,p), n)) * dG_0 \
-      - dot(U,n) * dot(n, dot(sigma(Phi,xi), n)) * dG_0 \
-      - inner(dot(sigma(U,p), n), Phi) * dBed \
-      - inner(dot(sigma(Phi,xi), n), U) * dBed \
-      + beta/h * inner(Phi,U) * dBed \
-      + beta/h * p * xi * dSrf \
+B_g = - dot(Phi,n) * dot(n, dot(sigma(U,  p ), n)) * dG_0 \
+      - dot(U,  n) * dot(n, dot(sigma(Phi,xi), n)) * dG_0 \
       + beta/h * dot(U,n) * dot(Phi,n) * dG_0 \
+      - f_w * dot(Phi, n) * dGamma \
+      + fric**2 * dot(U, Phi) * dBed \
+#      - p_a * dot(Phi, n) * dSrf \
 
 F   = + dot(f,Phi)*dx \
       + alpha * h**2 * inner(f, L(Phi,xi)) * dx \
-      - inner(dot(sigma(Phi,xi), n), u_0) * dBed \
-      + beta/h * inner(Phi,u_0) * dBed \
-      + beta/h * p_0 * xi * dSrf \
+      - u_n * dot(n, dot(sigma(Phi,xi), n)) * dG_0 \
       + beta/h * u_n * dot(Phi,n) * dG_0 \
 
 R = B_o + B_g - F
@@ -284,10 +289,10 @@ R = B_o + B_g - F
 J = derivative(R, G, dU)
 
 # compute solution :
-solve(R == 0, G, J=J, solver_parameters=params)
+solve(R == 0, G, bcs, J=J, solver_parameters=params)
 
 File("output/U.pvd")    << project(U)
-File("output/P.pvd")    << project(P)
+File("output/P.pvd")    << project(p)
 File("output/divU.pvd") << project(div(U))
 File("output/beta.pvd") << interpolate(beta,Q)
 

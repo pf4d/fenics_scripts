@@ -7,6 +7,8 @@ __copyright__ = "Copyright (c) 2013 %s" % __author__
 
 from fenics import *
 
+parameters['form_compiler']['quadrature_degree'] = 2
+
 nx      = 20
 ny      = 20
 nz      = 10
@@ -14,9 +16,13 @@ nz      = 10
 mesh    = Mesh('meshes/unit_cyl_mesh_crude.xml')
 
 # Define function spaces
+#Q  = FunctionSpace(mesh, "CG", 1)
+#V  = VectorFunctionSpace(mesh, "CG", 2)
+#W  = V * Q
+V  = VectorFunctionSpace(mesh, "CG", 1)
+B  = VectorFunctionSpace(mesh, "B", 4)
 Q  = FunctionSpace(mesh, "CG", 1)
-V  = VectorFunctionSpace(mesh, "CG", 2)
-W  = V * Q
+W  = (V + B)*Q
 ff = FacetFunction('size_t', mesh, 0)
 
 # iterate through the facets and mark each if on a boundary :
@@ -111,14 +117,14 @@ bc1 = DirichletBC(W.sub(1), p_0, ff, 2)
 
 bcs = [bc0, bc2]
 
-alpha = Constant(2.0)
-beta  = Constant(2000)
+alpha = Constant(1.0/10.0)
+beta  = Constant(100)
 h     = CellSize(mesh)
 n     = FacetNormal(mesh)
 I     = Identity(3)
 eta   = Constant(1.0)
 f     = Constant((0.0,0.0,0.0))
-fric  = Constant(2.0)
+fric  = Constant(0.0)
 
 def epsilon(u): return 0.5*(grad(u) + grad(u).T)
 def sigma(u,p): return 2*eta * epsilon(u) - p*I
@@ -139,6 +145,7 @@ B_g = - dot(v,n) * dot(n, dot(sigma(u,p), n)) * dGamma \
 
 F   = + dot(f,v)*dx \
       + alpha * h**2 * inner(f, L(v,q)) * dx \
+      - u_n * dot(n, dot(sigma(v,q), n)) * dGamma \
       + beta/h * u_n * dot(v,n) * dGamma \
 #      - inner(dot(sigma(v,q), n), u_0) * dSrf \
 #      + beta/h * inner(v,u_0) * dSrf \
