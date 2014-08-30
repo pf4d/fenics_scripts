@@ -94,10 +94,11 @@ mesh    = Mesh('meshes/unit_cyl_mesh.xml')
 #Q  = FunctionSpace(mesh, "CG", 1)
 #V  = VectorFunctionSpace(mesh, "CG", 2)
 #W  = V * Q
-V  = VectorFunctionSpace(mesh, "CG", 1)
-B  = VectorFunctionSpace(mesh, "B", 4)
+B  = FunctionSpace(mesh, "B", 4)
 Q  = FunctionSpace(mesh, "CG", 1)
-W  = (V + B)*Q
+M  = Q + B
+V  = MixedFunctionSpace([M,M,M])
+W  = MixedFunctionSpace([V,Q])
 ff = FacetFunction('size_t', mesh, 0)
 
 # iterate through the facets and mark each if on a boundary :
@@ -123,7 +124,7 @@ dG_0     = dBed
 
 t       = 500000.0 / 2
 S0      = 50.0
-bm      = 100.0
+bm      = 1000.0
 
 def gauss(x, y, sigx, sigy):
   return exp(-((x/(2*sigx))**2 + (y/(2*sigy))**2))
@@ -147,7 +148,7 @@ D = Depth(element = Q.ufl_element())
 class Beta(Expression):
   def eval(self, values, x):
     values[0] = bm * gauss(x[0], x[1], t/2, t/2)
-beta = Beta(element = Q.ufl_element())
+fric = Beta(element = Q.ufl_element())
 
 xmin = -t
 xmax = t
@@ -248,6 +249,7 @@ fric  = Constant(1000.0)
 f     = rho*gv
 
 bc2 = DirichletBC(W.sub(0), u_0, ff, 2)
+bc3 = DirichletBC(W.sub(0).sub(2), 0.0, ff, 2)
 bc1 = DirichletBC(W.sub(1), p_0, ff, 1)
 bcs = [bc1]
 
@@ -266,7 +268,7 @@ bcs = [bc1]
 
 def epsilon(u): return 0.5*(grad(u) + grad(u).T)
 def sigma(u,p): return 2*eta*epsilon(u) - p*I
-def L(u,p):     return -div(sigma(u,p))
+def L(u,p):     return -div(sigma(u,p)) #-div(grad(u)) + grad(p))
 
 B_o = + 2*eta*inner(epsilon(U), epsilon(Phi)) * dx \
       - div(U) * xi * dx \
@@ -275,9 +277,10 @@ B_o = + 2*eta*inner(epsilon(U), epsilon(Phi)) * dx \
 B_g = - dot(Phi,n) * dot(n, dot(sigma(U,  p ), n)) * dG_0 \
       - dot(U,  n) * dot(n, dot(sigma(Phi,xi), n)) * dG_0 \
       + beta/h * dot(U,n) * dot(Phi,n) * dG_0 \
-      - f_w * dot(Phi, n) * dGamma \
-      + fric**2 * dot(U, Phi) * dBed \
-#      - p_a * dot(Phi, n) * dSrf \
+      - fric**2 * dot(U, Phi) * dBed \
+      + f_w * dot(Phi, n) * dGamma \
+#      + (u*B.dx(0) + v*B.dx(1) - w) * xi * dBed \
+#      + p_a * dot(Phi, n) * dSrf \
 
 F   = + dot(f,Phi)*dx \
       + alpha * h**2 * inner(f, L(Phi,xi)) * dx \

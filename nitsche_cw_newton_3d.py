@@ -127,7 +127,7 @@ f     = Constant((0.0,0.0,0.0))
 fric  = Constant(0.0)
 
 def epsilon(u): return 0.5*(grad(u) + grad(u).T)
-def sigma(u,p): return 2*eta * epsilon(u) - p*I
+def sigma(u,p): return 2*eta*epsilon(u) - p*I
 def L(u,p):     return -div(sigma(u,p))
 
 B_o = + inner(sigma(u,p), grad(v)) * dx \
