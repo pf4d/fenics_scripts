@@ -122,8 +122,8 @@ dBed     = ds(2)
 dGamma   = ds(3)
 dG_0     = dBed
 
-t       = 500000.0 / 2
-S0      = 50.0
+t       = 1000000.0 / 2
+S0      = 200.0
 bm      = 1000.0
 
 def gauss(x, y, sigx, sigy):
@@ -131,12 +131,12 @@ def gauss(x, y, sigx, sigy):
 
 class Surface(Expression):
   def eval(self,values,x):
-    values[0] = S0 + 3000*gauss(x[0], x[1], t/2, t/2)
+    values[0] = S0 + 0*gauss(x[0], x[1], t/2, t/2)
 S = Surface(element = Q.ufl_element())
 
 class Bed(Expression):
   def eval(self,values,x):
-    values[0] = - (S0 + 300.0) \
+    values[0] = S0 - 500.0 \
                 - 1000.0 * gauss(x[0], x[1], t/2, t/2)
 B = Bed(element = Q.ufl_element())
 
@@ -221,7 +221,7 @@ Q_T   = conditional( lt(Tstar, 263.15), 6e4,          13.9e4)
 A     = E * a_T * exp( -Q_T / (R * Tstar))
 b     = A**(-1/n)
 
-gv  = as_vector([0, 0, g])
+k   = as_vector([0, 0, 1])
 f_w = rho*g*(S - x[2]) + rho_w*g*D
 p_a = p0 * (1 - g*x[2]/(cp*T0))**(cp*M/R)
 u_n = Constant(0.0)
@@ -245,8 +245,8 @@ beta  = Constant(1000)
 h     = CellSize(mesh)
 n     = FacetNormal(mesh)
 I     = Identity(3)
-fric  = Constant(1000.0)
-f     = rho*gv
+fric  = Constant(0.1)
+f     = rho*g*k
 
 bc2 = DirichletBC(W.sub(0), u_0, ff, 2)
 bc3 = DirichletBC(W.sub(0).sub(2), 0.0, ff, 2)
@@ -268,9 +268,9 @@ bcs = [bc1]
 
 def epsilon(u): return 0.5*(grad(u) + grad(u).T)
 def sigma(u,p): return 2*eta*epsilon(u) - p*I
-def L(u,p):     return -div(sigma(u,p)) #-div(grad(u)) + grad(p))
+def L(u,p):     return -div(sigma(u,p))
 
-B_o = + 2*eta*inner(epsilon(U), epsilon(Phi)) * dx \
+B_o = + inner(sigma(U,p), grad(Phi)) * dx \
       - div(U) * xi * dx \
       - alpha * h**2 * inner(L(U,p), L(Phi,xi)) * dx \
 
@@ -279,8 +279,6 @@ B_g = - dot(Phi,n) * dot(n, dot(sigma(U,  p ), n)) * dG_0 \
       + beta/h * dot(U,n) * dot(Phi,n) * dG_0 \
       - fric**2 * dot(U, Phi) * dBed \
       + f_w * dot(Phi, n) * dGamma \
-#      + (u*B.dx(0) + v*B.dx(1) - w) * xi * dBed \
-#      + p_a * dot(Phi, n) * dSrf \
 
 F   = + dot(f,Phi)*dx \
       + alpha * h**2 * inner(f, L(Phi,xi)) * dx \

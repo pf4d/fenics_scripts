@@ -13,7 +13,7 @@ nx      = 20
 ny      = 20
 nz      = 10
 #mesh    = BoxMesh(-1,-1, 0, 1, 1, 1, nx,ny,nz)
-mesh    = Mesh('meshes/unit_cyl_mesh_crude.xml')
+mesh    = Mesh('meshes/unit_cyl_mesh.xml')
 
 # Define function spaces
 #Q  = FunctionSpace(mesh, "CG", 1)
@@ -61,6 +61,13 @@ class Bed(Expression):
   def eval(self,values,x):
     values[0] = + S0 - 200.0
 B = Bed(element = Q.ufl_element())
+
+class F(Expression):
+  def eval(self, values, x):
+    values[0] = 0.0
+    values[1] = -9.81 * 917.0
+    values[2] = 0.0#-9.81 * 917.0# * S(x[0],x[1],x[2]) - x[2]
+f = F(element = V.ufl_element())
 
 class U_0(Expression):
   def eval(self,values,x):
@@ -115,16 +122,17 @@ bc2 = DirichletBC(W.sub(0), u_0, ff, 2)
 p_0 = Constant(0.0)
 bc1 = DirichletBC(W.sub(1), p_0, ff, 2)
 
-bcs = [bc0, bc2]
+bcs = []
 
+g     = 9.81
+rho   = 1000.0
 alpha = Constant(1.0/10.0)
 beta  = Constant(100)
 h     = CellSize(mesh)
 n     = FacetNormal(mesh)
 I     = Identity(3)
 eta   = Constant(1.0)
-f     = Constant((0.0,0.0,0.0))
-fric  = Constant(0.0)
+fric  = Constant(1000.0)
 
 def epsilon(u): return 0.5*(grad(u) + grad(u).T)
 def sigma(u,p): return 2*eta*epsilon(u) - p*I
@@ -136,7 +144,7 @@ B_o = + inner(sigma(u,p), grad(v)) * dx \
 
 B_g = - dot(v,n) * dot(n, dot(sigma(u,p), n)) * dGamma \
       - dot(u,n) * dot(n, dot(sigma(v,q), n)) * dGamma \
-      + fric**2 * dot(u, v) * dGamma \
+      - fric**2 * dot(u, v) * dGamma \
       + beta/h * dot(u,n) * dot(v,n) * dGamma \
 #      + beta/h * inner(v,u) * dSrf \
 #      + beta/h * p * q * dBed \
@@ -154,8 +162,6 @@ F   = + dot(f,v)*dx \
 R = B_o + B_g - F
 
 J = derivative(R, U, dU)
-
-File("output/u_0.pvd") << interpolate(u_0,V)
 
 solve(R == 0, U, bcs, J=J)
 
