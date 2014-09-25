@@ -2,8 +2,8 @@
 Demo for Nitsche-type free-slip boundary conditions
 """
 
-__author__ = "Christian Waluga (waluga@ma.tum.de), highly modified by Evan Cummings (evan.cummings@umontan.edu"
-__copyright__ = "Copyright (c) 2013 %s" % __author__
+__author__    = "Evan Cummings (evan.cummings@umontan.edu"
+__copyright__ = "Copyright (c) 2014 %s" % __author__
 
 from fenics import *
 
