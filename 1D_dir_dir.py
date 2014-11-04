@@ -1,38 +1,32 @@
 from pylab  import *
 from fenics import *
 
-def gauss(x):
-  return exp(-(x/2)**2)
-
-class F2(Expression):
-  def eval(self, values, x): 
-    values[0] = gauss(x[0])
-
 mesh = IntervalMesh(1000,-pi,pi)
 Q    = FunctionSpace(mesh, 'CG', 1)
 
-f1   = Expression('sin(x[0])')
-f2   = F2()
-u    = interpolate(f1,Q)
-v    = interpolate(f2,Q)
+y    = interpolate(Expression('pow(x[0], 6)'), Q)
+t    = interpolate(Expression('pow(x[0], 2)'), Q)
+d1   = interpolate(Expression('3*pow(x[0], 4)'), Q)
 
-dudv = u.dx(0) * v
+dydt = y.dx(0) * 1/t.dx(0)
 
 x    = mesh.coordinates()[:,0]
 
-u_v  = u.vector().array()
-v_v  = v.vector().array()
-d_v  = project(dudv).vector().array()
+y_v  = y.vector().array()
+t_v  = t.vector().array()
+d_1  = d1.vector().array()
+d_2  = project(dydt).vector().array()
 
 fig  = figure()
 ax   = fig.add_subplot(111)
 
-ax.plot(x, u_v, 'k',   lw=2.0, label=r'$u$')
-ax.plot(x, v_v, 'r',   lw=2.0, label=r'$v$')
-ax.plot(x, d_v, 'k--', lw=2.0, label=r'$\frac{\partial u}{\partial v}$')
+ax.plot(x, y_v, 'k',   lw=2.0, label=r'$y$')
+ax.plot(x, t_v, 'r',   lw=2.0, label=r'$t$')
+ax.plot(x, d_1, 'k--', lw=2.0, label=r'analytical $\frac{dy}{dt}$')
+ax.plot(x, d_2, 'r--', lw=2.0, label=r'numerical $\frac{dy}{dt}$')
 
 ax.grid()
-ax.legend()
+ax.legend(loc='upper center')
 show()
 
 
