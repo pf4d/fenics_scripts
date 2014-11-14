@@ -1,18 +1,19 @@
 from dolfin import *
 import numpy as np
 
-n    = 3
+n    = 20
 mesh = BoxMesh(-1, -1, 0, 1, 1, 2, n, n, n)
 
 # define function space :
-Q = FunctionSpace(mesh, "CG", 2)
+Q = FunctionSpace(mesh, "CG", 1)
 
 # function to be evaluated :
 f = Expression('sqrt(pow(x[0],2) + pow(x[1], 2) + pow(x[2], 2))')
 f = interpolate(f, Q)
 
 # analytical directional derivative :
-g = Expression('x[2] / sqrt(pow(x[0],2) + pow(x[1],2) + pow(x[2],2))')
+g = Expression('x[2] / sqrt(pow(x[0],2) + pow(x[1],2) + pow(x[2],2) + eps)',
+               eps=DOLFIN_EPS)
 g = interpolate(g, Q)
 
 # formulate variables :
@@ -49,8 +50,9 @@ n1 = np.sqrt(sum(norm_U**2))
 n2 = np.sqrt(sum(norm_Uf.vector().array()**2))
 print n1, '?=', n2
 
-#File('output/f.pvd')     << project(f)
-#File('output/t.pvd')     << project(t)
+File('output/f.pvd')     << f
+File('output/g.pvd')     << g
+File('output/t.pvd')     << t
 #File('output/gradf.pvd') << project(gradf)
 
 #plot(project(gradf))
