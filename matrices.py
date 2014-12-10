@@ -12,6 +12,7 @@ def plot_matrix(M, ax, title, continuous=False, cmap='Greys'):
   <ax>.
   """
   M    = array(M)
+  m,n  = shape(M)
   M    = M.round(decimals=9)
   cmap = cm.get_cmap(cmap)
   if not continuous:
@@ -20,7 +21,8 @@ def plot_matrix(M, ax, title, continuous=False, cmap='Greys'):
   im      = ax.imshow(M, cmap=cmap, interpolation='None')
   divider = make_axes_locatable(ax)
   cax     = divider.append_axes("right", size="5%", pad=0.05)
-  ax.set_title(title)
+  dim     = r'$%i \times %i$ ' % (m,n)
+  ax.set_title(dim + title)
   ax.axis('off')
   cb = colorbar(im, cax=cax)
   if not continuous:
