@@ -3,36 +3,21 @@ from fenics   import *
 from matrices import plot_matrix
 
 n    = 2
-#mesh = UnitIntervalMesh(3)
 #mesh = UnitSquareMesh(n,n)
-#mesh = UnitCubeMesh(n,n,n)
 #mesh = Mesh('meshes/unit_square_mesh.xml')
-#mesh = Mesh('meshes/unit_cube_mesh.xml')
 mesh = Mesh('meshes/triangle.xml')
 
-## refine mesh :
-#origin = Point(0.0,0.0,0.0)
-#for i in range(1,10):
-#  cell_markers = CellFunction("bool", mesh)
-#  cell_markers.set_all(False)
-#  for cell in cells(mesh):
-#    p = cell.midpoint()
-#    if p.distance(origin) < 1.0/i:
-#      cell_markers[cell] = True
-#  mesh = refine(mesh, cell_markers)
-
-## refine mesh :
-#for i in range(1,10):
-#  cell_markers = CellFunction("bool", mesh)
-#  cell_markers.set_all(False)
-#  for cell in cells(mesh):
-#    p = cell.midpoint()
-#    if p.y() <= 1.0/i:
-#      cell_markers[cell] = True
-#  mesh = refine(mesh, cell_markers)
+# refine mesh :
+for i in range(1,1):
+  cell_markers = CellFunction("bool", mesh)
+  cell_markers.set_all(False)
+  for cell in cells(mesh):
+    p = cell.midpoint()
+    if p.y() <= 1.0/i:
+      cell_markers[cell] = True
+  mesh = refine(mesh, cell_markers)
 
 Q = FunctionSpace(mesh, 'CG', 1)
-V = VectorFunctionSpace(mesh, 'CG', 1)
 
 w = TrialFunction(Q)
 v = TestFunction(Q)
@@ -40,7 +25,7 @@ u = Function(Q, name='u')
 
 f = Constant(1.0)
 
-a = w.dx(0) * v.dx(0) * dx
+a = inner(grad(w), grad(v)) * dx
 l = f * v * dx
 
 def left(x, on_boundary):
@@ -86,23 +71,17 @@ K = array([[ 1,-1, 0, 0, 0, 0],
            [ 0, 0,-2,-1, 4,-1],
            [ 0, 0, 0, 0,-1, 1]])
 
-fig = figure()
-ax  = fig.add_subplot(111)
+K = 0.5*K
 
-plot_matrix(A, ax, r'stiffness matrix $K$', continuous=False)
+fig = figure(figsize=(10,5))
+ax1 = fig.add_subplot(121)
+ax2 = fig.add_subplot(122)
+
+plot_matrix(A, ax1, r'stiffness matrix $A$', continuous=False)
+plot_matrix(K, ax2, r'stiffness matrix $K$', continuous=False)
 
 tight_layout()
 show()
-
-from pylab import *
-
-uv_r = dot(inv(0.5*K[:3,:3]), b[:3])
-uv_r = append(uv_r, zeros(3))
-
-u.vector().set_local(uv_r)
-u.vector().apply('insert')
-
-File('output/ur.pvd') << u
 
 
 
