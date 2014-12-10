@@ -122,8 +122,6 @@ class MeshGenerator(object):
     #       outside of ipython works.
     c   = self.longest_cont
     f   = self.f
-    x   = self.x
-    y   = self.y
 
     pts = size(c[:,0])
 
