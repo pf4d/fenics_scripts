@@ -7,12 +7,13 @@ mesh = UnitCubeMesh(n,n,n)
 #mesh = Mesh('meshes/unit_cube_mesh.xml')
 
 # refine mesh :
-for i in range(1,1):
+origin = Point(0.0,0.5,0.5)
+for i in range(1,10):
   cell_markers = CellFunction("bool", mesh)
   cell_markers.set_all(False)
   for cell in cells(mesh):
     p = cell.midpoint()
-    if p.y() <= 1.0/i:
+    if p.distance(origin) < 1.0/i:
       cell_markers[cell] = True
   mesh = refine(mesh, cell_markers)
 
@@ -51,8 +52,10 @@ File('output/u.pvd') << u
 uv = u.vector().array()
 b  = assemble(l).array()
 A  = assemble(a).array()
+h  = project(CellSize(mesh),Q).vector().array()
+h  = project(FacetArea(mesh), Q).vector().array()
 
-t  = np.dot(A,uv) - b
+t  = h*(np.dot(A,uv) - b)
 
 q = Function(Q, name='q')
 q.vector().set_local(t)
@@ -60,13 +63,13 @@ q.vector().apply('insert')
 
 File('output/q.pvd') << q
 
-fig = figure()
-ax  = fig.add_subplot(111)
-
-plot_matrix(A, ax, r'stiffness matrix $K$', continuous=False)
-
-tight_layout()
-show()
+#fig = figure()
+#ax  = fig.add_subplot(111)
+#
+#plot_matrix(A, ax, r'stiffness matrix $K$', continuous=False)
+#
+#tight_layout()
+#show()
 
 
 
