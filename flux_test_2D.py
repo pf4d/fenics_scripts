@@ -38,7 +38,6 @@ u = Function(Q, name='u')
 
 f = Constant(1.0)
 
-m = w * v * dx
 a = inner(grad(w), grad(v)) * dx
 l = f * v * dx
 
@@ -66,9 +65,9 @@ solve(a == l, u, bc)
 File('output/u.pvd') << u
 
 uv = u.vector().array()
-s  = assemble(dot(grad(u), N) * v * ds)
 
-M  = assemble(m)
+s  = assemble(dot(grad(u), N) * v * ds)
+M  = assemble(w * v * dx)
 b  = assemble(l)
 K  = assemble(a)
 
