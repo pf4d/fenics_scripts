@@ -2,42 +2,10 @@ from pylab    import *
 from fenics   import *
 from matrices import plot_matrix
 
-def get_facet_normal(bmesh):
-  '''Manually calculate FacetNormal function'''
-
-  if not bmesh.type().dim() == 2:
-    raise ValueError('Only works for 2-D mesh')
-
-  vertices = bmesh.coordinates()
-  cells = bmesh.cells()
-
-  vec1 = vertices[cells[:, 1]] - vertices[cells[:, 0]]
-  vec2 = vertices[cells[:, 2]] - vertices[cells[:, 0]]
-
-  normals = np.cross(vec1, vec2)
-  normals /= np.sqrt((normals**2).sum(axis=1))[:, np.newaxis]
-
-  # Ensure outward pointing normal
-  #bmesh.init_cell_orientations(Expression(('x[0]', 'x[1]', 'x[2]')))
-  #normals[bmesh.cell_orientations() == 1] *= -1
-
-  V = VectorFunctionSpace(bmesh, 'DG', 0)
-  norm = Function(V)
-  nv = norm.vector()
-
-  for n in (0,1,2):
-    dofmap = V.sub(n).dofmap()
-    for i in xrange(dofmap.global_dimension()):
-      dof_indices = dofmap.cell_dofs(i)
-      assert len(dof_indices) == 1
-      nv[dof_indices[0]] = normals[i, n]
-
-  return norm
-
 n     = 10
 mesh  = UnitCubeMesh(n,n,n)
-bmesh = BoundaryMesh(mesh, 'exterior')
 #mesh = Mesh('meshes/unit_cube_mesh.xml')
+bmesh = BoundaryMesh(mesh, 'exterior')
 
 # refine mesh :
 origin = Point(0.0,0.5,0.5)
@@ -86,15 +54,25 @@ solve(a == l, u, bcl)
 
 File('output/u.pvd') << u
 
-File('output/n.pvd') << get_facet_normal(bmesh)
-
 uv = u.vector().array()
 
-N = as_vector([-1,0,0])
+#N  = as_vector([-1,0,0])
 
 M  = assemble(w * v * dx)
 
-s  = assemble(-dot(grad(u), N) * v * dx)
+sx = u.dx(0) * N[0] * v * ds 
+sy = u.dx(1) * N[1] * v * ds 
+sz = u.dx(2) * N[2] * v * ds 
+
+sx_v = assemble(sx)
+sy_v = assemble(sy)
+sz_v = assemble(sz)
+
+sx = Function(Q)
+sy = Function(Q)
+sz = Function(Q)
+
+#s  = assemble(-dot(grad(u), N) * v * dx)
 b  = assemble(l)
 K  = assemble(a)
 h  = project(H,Q).vector().array()/1.2
@@ -107,9 +85,17 @@ q.vector().apply('insert')
 
 File('output/q.pvd') << q
 
-fx = Function(Q, name='fx')
-solve(M, fx.vector(), s)
-File('output/fx.pvd') << fx
+solve(M, sx.vector(), sx_v)
+solve(M, sy.vector(), sy_v)
+solve(M, sz.vector(), sz_v)
+
+s = as_vector([sx, sy, sz])
+
+File('output/fx.pvd') << project(s,V)
+
+#fx = Function(Q, name='fx')
+#solve(M, fx.vector(), s)
+#File('output/fx.pvd') << fx
 
 fig = figure(figsize=(10,5))
 ax1 = fig.add_subplot(121)
