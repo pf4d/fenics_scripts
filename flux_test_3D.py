@@ -2,6 +2,7 @@ from pylab    import *
 from fenics   import *
 from matrices import plot_matrix
 
+<<<<<<< HEAD
 def normalize_vector(U):
   """
   Create a normalized vector of the UFL vector <U>.
@@ -31,10 +32,12 @@ def normalize_vector(U):
   # return a UFL vector :
   return as_vector(U_f)
 
+=======
+>>>>>>> 4bd5240e2c2a7668595cbabf9877c8c059b229f9
 n     = 10
 mesh  = UnitCubeMesh(n,n,n)
-bmesh = BoundaryMesh(mesh, 'exterior')
 #mesh = Mesh('meshes/unit_cube_mesh.xml')
+bmesh = BoundaryMesh(mesh, 'exterior')
 
 # refine mesh :
 origin = Point(0.0,0.5,0.5)
@@ -85,6 +88,7 @@ File('output/u.pvd') << u
 
 uv = u.vector().array()
 
+<<<<<<< HEAD
 #N = as_vector([-1,0,0])
 
 M  = assemble(w * v * dx)
@@ -109,6 +113,25 @@ n  = as_vector([nx,ny,nz])
 File('output/n.pvd') << project(n,V)
 
 s  = assemble(-dot(grad(u), N) * v * ds)
+=======
+#N  = as_vector([-1,0,0])
+
+M  = assemble(w * v * dx)
+
+sx = u.dx(0) * N[0] * v * ds 
+sy = u.dx(1) * N[1] * v * ds 
+sz = u.dx(2) * N[2] * v * ds 
+
+sx_v = assemble(sx)
+sy_v = assemble(sy)
+sz_v = assemble(sz)
+
+sx = Function(Q)
+sy = Function(Q)
+sz = Function(Q)
+
+#s  = assemble(-dot(grad(u), N) * v * dx)
+>>>>>>> 4bd5240e2c2a7668595cbabf9877c8c059b229f9
 b  = assemble(l)
 K  = assemble(a)
 h  = project(H,Q).vector().array()/1.2
@@ -121,9 +144,17 @@ q.vector().apply('insert')
 
 File('output/q.pvd') << q
 
-fx = Function(Q, name='fx')
-solve(M, fx.vector(), s)
-File('output/fx.pvd') << fx
+solve(M, sx.vector(), sx_v)
+solve(M, sy.vector(), sy_v)
+solve(M, sz.vector(), sz_v)
+
+s = as_vector([sx, sy, sz])
+
+File('output/fx.pvd') << project(s,V)
+
+#fx = Function(Q, name='fx')
+#solve(M, fx.vector(), s)
+#File('output/fx.pvd') << fx
 
 fig = figure(figsize=(10,5))
 ax1 = fig.add_subplot(121)
