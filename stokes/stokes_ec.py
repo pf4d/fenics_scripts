@@ -27,21 +27,19 @@ l    = 10000
 mesh = RectangleMesh(0, 0, l, 1, 100, 10)
 ff   = FacetFunction('size_t', mesh, 0)
 
-
-
 # Define function spaces
-V = VectorFunctionSpace(mesh, "CG", 2)
-Q = FunctionSpace(mesh, "CG", 1)
-I = Identity(2)
-x = SpatialCoordinate(mesh)
-W = V * Q
+B  = FunctionSpace(mesh, "B", 3)
+Q  = FunctionSpace(mesh, "CG", 1)
+M  = Q + B
+V  = MixedFunctionSpace([M,M])
+W  = MixedFunctionSpace([V,Q])
 
 # iterate through the facets and mark each if on a boundary :
 #
-#   1 = high slope, upward facing ................ surface
-#   2 = high slope, downward facing .............. base
-#   3 = low slope, upward or downward facing ..... right side
-#   4 = low slope, upward or downward facing ..... left side
+#   1 = ..... surface
+#   2 = ..... base
+#   3 = ..... right side
+#   4 = ..... left side
 for f in facets(mesh):
   n       = f.normal()    # unit normal vector to facet f
   tol     = 1.0
@@ -64,7 +62,6 @@ dSrf     = ds(1)
 dBed     = ds(2)
 dLeft    = ds(3)
 dRight   = ds(4)
-n = FacetNormal(mesh)
 
 # Deform the square to the defined geometry :
 for x in mesh.coordinates():
@@ -72,26 +69,33 @@ for x in mesh.coordinates():
   # thickness = surface - base, z = thickness + base
   x[1]  = x[1] * S(x[0], x[1])
 
-File("output/ff.pvd") << ff
-
 rho = 917.9
 g   = 9.8
+eta = 1.0
 
-# No-slip boundary condition for velocity 
-# x1 = 0, x1 = 1 and around the dolphin
+# No-slip boundary condition for velocity on bed and at divide : 
 noslip = Constant((0, 0))
-bc0 = DirichletBC(W.sub(0), noslip, ff, 2)
-bc1 = DirichletBC(W.sub(0), noslip, ff, 4)
+bc0    = DirichletBC(W.sub(0), noslip, ff, 2)
+bc1    = DirichletBC(W.sub(0), noslip, ff, 4)
 
 # Collect boundary conditions
 bcs = [bc0, bc1]
 
 # Define variational problem
+I = Identity(2)
+x = SpatialCoordinate(mesh)
+n = FacetNormal(mesh)
+
 (u, p) = TrialFunctions(W)
 (v, q) = TestFunctions(W)
+
+def epsilon(u): return 0.5*(grad(u) + grad(u).T)
+def sigma(u,p): return 2*eta*epsilon(u) - p*I
+def L(u,p):     return -div(sigma(u,p))
+
 f = Constant((0, -rho * g))
-a = (inner(grad(u) - p*I, grad(v)) + q*div(u))*dx
-L = inner(f, v)*dx + rho*g*(S - x[1]) * dot(v, n) * dLeft
+a = inner(sigma(u,p), grad(v))*dx + q*div(u)*dx
+L = inner(f,v)*dx + rho*g*(S - x[1])*dot(v,n)*dRight
 
 # Compute solution
 w = Function(W)
