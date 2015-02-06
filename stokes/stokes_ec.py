@@ -16,6 +16,7 @@
 # along with DOLFIN. If not, see <http://www.gnu.org/licenses/>.
 #
 # Modified by Anders Logg, 2008-2009.
+# Modified by Evan Cummings, 2015
 #
 # First added:  2007-11-16
 # Last changed: 2009-11-26
