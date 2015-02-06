@@ -2,37 +2,34 @@ from pylab    import *
 from fenics   import *
 from matrices import plot_matrix
 
-def get_facet_normal(bmesh):
-  '''Manually calculate FacetNormal function'''
+def normalize_vector(U):
+  """
+  Create a normalized vector of the UFL vector <U>.
+  """
+  # iterate through each component and convert to array :
+  U_v = []
+  for u in U:
+    # convert to array and normailze the components of U :
+    u_v = u.vector().array()
+    U_v.append(u_v)
+  U_v = np.array(U_v)
 
-  if not bmesh.type().dim() == 2:
-    raise ValueError('Only works for 2-D mesh')
+  # calculate the norm :
+  norm_u = np.sqrt(sum(U_v**2))
+  
+  # normalize the vector :
+  U_v /= norm_u
+  
+  # convert back to fenics :
+  U_f = []
+  for u_v in U_v:
+    u_f = Function(Q)
+    u_f.vector().set_local(u_v)
+    u_f.vector().apply('insert')
+    U_f.append(u_f)
 
-  vertices = bmesh.coordinates()
-  cells = bmesh.cells()
-
-  vec1 = vertices[cells[:, 1]] - vertices[cells[:, 0]]
-  vec2 = vertices[cells[:, 2]] - vertices[cells[:, 0]]
-
-  normals = np.cross(vec1, vec2)
-  normals /= np.sqrt((normals**2).sum(axis=1))[:, np.newaxis]
-
-  # Ensure outward pointing normal
-  #bmesh.init_cell_orientations(Expression(('x[0]', 'x[1]', 'x[2]')))
-  #normals[bmesh.cell_orientations() == 1] *= -1
-
-  V = VectorFunctionSpace(bmesh, 'DG', 0)
-  norm = Function(V)
-  nv = norm.vector()
-
-  for n in (0,1,2):
-    dofmap = V.sub(n).dofmap()
-    for i in xrange(dofmap.global_dimension()):
-      dof_indices = dofmap.cell_dofs(i)
-      assert len(dof_indices) == 1
-      nv[dof_indices[0]] = normals[i, n]
-
-  return norm
+  # return a UFL vector :
+  return as_vector(U_f)
 
 n     = 10
 mesh  = UnitCubeMesh(n,n,n)
@@ -86,15 +83,32 @@ solve(a == l, u, bcl)
 
 File('output/u.pvd') << u
 
-File('output/n.pvd') << get_facet_normal(bmesh)
-
 uv = u.vector().array()
 
-N = as_vector([-1,0,0])
+#N = as_vector([-1,0,0])
 
 M  = assemble(w * v * dx)
 
-s  = assemble(-dot(grad(u), N) * v * dx)
+nx_v = assemble(v * N[0] * ds)
+ny_v = assemble(v * N[1] * ds)
+nz_v = assemble(v * N[2] * ds)
+
+nx = Function(Q)
+ny = Function(Q)
+nz = Function(Q)
+
+solve(M, nx.vector(), nx_v)
+solve(M, ny.vector(), ny_v)
+solve(M, nz.vector(), nz_v)
+
+
+n  = as_vector([nx,ny,nz])
+
+#n  = normalize_vector(n)
+
+File('output/n.pvd') << project(n,V)
+
+s  = assemble(-dot(grad(u), N) * v * ds)
 b  = assemble(l)
 K  = assemble(a)
 h  = project(H,Q).vector().array()/1.2
