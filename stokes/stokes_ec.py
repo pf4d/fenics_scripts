@@ -19,7 +19,7 @@
 # Modified by Evan Cummings, 2015
 #
 # First added:  2007-11-16
-# Last changed: 2009-11-26
+# Last changed: 2015-02-06
 # Begin demo
 
 from dolfin import *
