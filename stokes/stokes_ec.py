@@ -74,10 +74,11 @@ rho = 917.9
 g   = 9.8
 eta = 1.0
 
-# No-slip boundary condition for velocity on bed and at divide : 
+# boundary conditions : 
 noslip = Constant((0, 0))
-bc0    = DirichletBC(W.sub(0), noslip, ff, 2)
-bc1    = DirichletBC(W.sub(0), noslip, ff, 4)
+bc0    = DirichletBC(W.sub(0), noslip, ff, 2)  # zero velocity on bed
+bc1    = DirichletBC(W.sub(0), noslip, ff, 4)  # zero velocity at divide
+bc2    = DirichletBC(W.sub(1), 0.0,    ff, 1)  # zero pressure on surface
 
 # Collect boundary conditions
 bcs = [bc0, bc1]
