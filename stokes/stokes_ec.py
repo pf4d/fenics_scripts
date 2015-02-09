@@ -61,14 +61,16 @@ S = Surface(element = Q.ufl_element())
 ds       = Measure('ds')[ff]
 dSrf     = ds(1)
 dBed     = ds(2)
-dLeft    = ds(3)
-dRight   = ds(4)
+dRight   = ds(3)
+dLeft    = ds(4)
 
 # Deform the square to the defined geometry :
 for x in mesh.coordinates():
   # transform z :
   # thickness = surface - base, z = thickness + base
   x[1]  = x[1] * S(x[0], x[1])
+
+File("output/ff.pvd") << ff
 
 rho = 917.9
 g   = 9.8
