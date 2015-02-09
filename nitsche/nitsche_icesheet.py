@@ -1,11 +1,3 @@
-"""
-Demo for Nitsche-type free-slip boundary conditions
-"""
-
-__author__ = "Christian Waluga (waluga@ma.tum.de), modified by " + \
-             " Evan Cummings (2015)"
-__copyright__ = "Copyright (c) 2013 %s" % __author__
-
 from fenics import *
 
 l    = 10000
