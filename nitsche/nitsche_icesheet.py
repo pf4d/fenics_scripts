@@ -2,7 +2,7 @@ from fenics import *
 
 l    = 10000
 d    = 800
-mesh = RectangleMesh(-l+d, 0, l-d, 1, 1000, 100)
+mesh = RectangleMesh(-l+d, 0, l-d, 1, 1000, 20)
 ff   = FacetFunction('size_t', mesh, 0)
 
 # Define function spaces
