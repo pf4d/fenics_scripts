@@ -104,7 +104,7 @@ B_g = - dot(v,n) * dot(n, dot(sigma(u,p), n)) * dBed \
       + fric**2 * dot(u, v) * dBed \
 
 F   = + dot(f,v)*dx \
-      + alpha * h**2 * inner(f, L(v,q)) * dx \
+      - alpha * h**2 * inner(f, L(v,q)) * dx \
       - u_n * dot(n, dot(sigma(v,q), n)) * dBed \
       - u_n * dot(n, dot(sigma(v,q), n)) * dLeft \
       + beta/h * u_n * dot(v,n) * dBed \
