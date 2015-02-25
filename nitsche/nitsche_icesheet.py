@@ -2,7 +2,7 @@ from fenics import *
 
 l    = 10000
 d    = 800
-mesh = RectangleMesh(-l+d, 0, l-d, 1, 1000, 20)
+mesh = RectangleMesh(-l+d, 0, l-d, 1, 2000, 50)
 ff   = FacetFunction('size_t', mesh, 0)
 
 # Define function spaces
@@ -37,7 +37,7 @@ S = Surface(element = Q.ufl_element())
 
 class Bed(Expression):
   def eval(self,values,x):
-    values[0] = 100*cos(1000*pi*x[0]/l)
+    values[0] = 100*cos(100*pi*x[0]/(2*l))
 B = Bed(element = Q.ufl_element())
 
 class Depth(Expression):
@@ -99,14 +99,15 @@ B_o = + inner(sigma(u,p), grad(v)) * dx \
 
 B_g = - dot(v,n) * dot(n, dot(sigma(u,p), n)) * dBed \
       - dot(u,n) * dot(n, dot(sigma(v,q), n)) * dBed \
-      + beta/h * dot(u,n) * dot(v,n) * dBed \
       + beta/h * dot(u,n) * dot(v,n) * dLeft \
+      + beta/h * dot(u,n) * dot(v,n) * dBed \
       + fric**2 * dot(u, v) * dBed \
 
 F   = + dot(f,v)*dx \
       - alpha * h**2 * inner(f, L(v,q)) * dx \
       - u_n * dot(n, dot(sigma(v,q), n)) * dBed \
       - u_n * dot(n, dot(sigma(v,q), n)) * dLeft \
+      + beta/h * u_n * dot(v,n) * dLeft \
       + beta/h * u_n * dot(v,n) * dBed \
       + f_w * dot(v,n) * dRight \
 
