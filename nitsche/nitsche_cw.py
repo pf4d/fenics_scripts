@@ -65,7 +65,7 @@ B_g = - dot(v,n) * dot(n, dot(sigma(u,p), n)) * dG_0 \
       + beta/h * dot(u,n) * dot(v,n) * dG_0 \
 
 F   = + dot(f,v)*dx \
-      + alpha * h**2 * inner(f, L(v,q)) * dx \
+      - alpha * h**2 * inner(f, L(v,q)) * dx \
       - inner(dot(sigma(v,q), n), u_0) * dG_r \
       + beta/h * inner(v,u_0) * dG_r \
       + beta/h * p_0 * q * dG_l \
