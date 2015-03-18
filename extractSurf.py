@@ -21,6 +21,15 @@ for c in cells(bmesh):
   if Facet(mesh, cellmap[c.index()]).normal().z() < 0:
     pb[c] = 1
 
+ff = FacetFunction('size_t', mesh, 0)
+for f in facets(mesh):
+  n = f.normal()
+  if n.z() < 1e-8 and abs(n.x()) < 1e-8 and abs(n.y()) < 1e-8:
+    ff[f] = 1
+
+File("output/ff.pvd") << ff
+bc = DirichletBC(V, u, ff, 1)
+
 submesh = SubMesh(bmesh, pb, 1)           # bottom of boundary mesh
 
 Vb  = FunctionSpace(bmesh,   "CG", 1)     # surface function space
@@ -61,8 +70,9 @@ unb_a[b[t]]  = us_a[s]   # works
 
 un_a[m[b[t]]] = us_a[s]  # need something to make this sort of thing work
 
-un.vector().set_local(un_a)
+#un.vector().set_local(un_a)
 unb.vector().set_local(unb_a)
+bc.apply(un.vector())
 
 # save for viewing :
 File("output/u.pvd")      << u
