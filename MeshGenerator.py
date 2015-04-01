@@ -1,4 +1,5 @@
 from pylab import *
+import subprocess
 
 class MeshGenerator(object):
   """
@@ -253,23 +254,21 @@ class MeshGenerator(object):
     self.f.close()
 
 
-  def create_2D_mesh(self, outfile):
+  def create_2D_mesh(self):
     """
     create the 2D mesh to file <outfile>.msh.
     """
-    #FIXME: this fails every time, the call in the terminal does work however.
-    cmd = 'gmsh ' + '-2 ' + self.direc + self.fn + '.geo'# -2 -o ' \
-                  #+ self.direc + outfile + '.msh'
+    cmd = 'gmsh ' + '-2 ' + self.direc + self.fn + '.geo'
     print "\nExecuting :\n\n\t", cmd, "\n\n"
     subprocess.call(cmd.split())
 
 
-  def convert_msh_to_xml(self, mshfile, xmlfile):
+  def convert_msh_to_xml(self):
     """
     convert <mshfile> .msh file to .xml file <xmlfile> via dolfin-convert.
     """
-    msh = self.direc + mshfile + '.msh'
-    xml = self.direc + xmlfile + '.xml'
+    msh = self.direc + self.fn + '.msh'
+    xml = self.direc + self.fn + '.xml'
 
     cmd = 'dolfin-convert ' + msh + ' ' + xml
     print "\nExecuting :\n\n\t", cmd, "\n\n"

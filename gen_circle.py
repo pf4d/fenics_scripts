@@ -12,16 +12,15 @@ X,Y = meshgrid(x,y)
 
 S = 1 - sqrt(X**2 + Y**2)
 
-m = MeshGenerator(x, y, 'cylinder_mesh', 'meshes/')
+m = MeshGenerator(x, y, 'circle_mesh', 'meshes/')
 
 m.create_contour(S, zero_cntr=1e-16, skip_pts=4)
 m.eliminate_intersections(dist=10)
 #m.plot_contour()
 m.write_gmsh_contour(lc=0.1, boundary_extend=False)
-m.extrude(h=1, n_layers=10)
 m.add_edge_attractor(1)
 #field, ifield, lcMin, lcMax, distMin, distMax
-m.add_threshold(2, 1, 0.2, 0.2, 0, 0.5)
+m.add_threshold(2, 1, 0.05, 0.1, 0, 0.5)
 m.finish(4)
 
 m.create_2D_mesh()
