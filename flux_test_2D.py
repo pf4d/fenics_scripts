@@ -9,14 +9,14 @@ mesh = UnitSquareMesh(n,n)
 
 # refine mesh :
 origin = Point(0.0,0.5,0.0)
-for i in range(1,8):
-  cell_markers = CellFunction("bool", mesh)
-  cell_markers.set_all(False)
-  for cell in cells(mesh):
-    p = cell.midpoint()
-    if p.distance(origin) < 1.0/i:
-      cell_markers[cell] = True
-  mesh = refine(mesh, cell_markers)
+#for i in range(1,8):
+#  cell_markers = CellFunction("bool", mesh)
+#  cell_markers.set_all(False)
+#  for cell in cells(mesh):
+#    p = cell.midpoint()
+#    if p.distance(origin) < 1.0/i:
+#      cell_markers[cell] = True
+#  mesh = refine(mesh, cell_markers)
 
 ## refine mesh :
 #for i in range(1,1):

@@ -1,10 +1,10 @@
 # script taken from the FEniCS project tutorial at http://fenicsproject.org
 
-from dolfin import *
+from fenics import *
 import numpy
 
 # Create mesh and define function space
-mesh = UnitSquare(30, 30)
+mesh = UnitSquareMesh(30, 30)
 V = FunctionSpace(mesh, 'Lagrange', 1)
 
 # Define boundary conditions
