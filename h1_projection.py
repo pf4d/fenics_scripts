@@ -5,7 +5,7 @@ lerr_a = []
 herr_a = []
 l_t_a  = []
 h_t_a  = []
-n_a    = [10,20,40,80,160,320,640,1280,2560]
+n_a    = [10,20,40,80,160,320,640,1280,2560,5120,29240]
 
 for n in n_a:
 
@@ -23,9 +23,12 @@ for n in n_a:
   delta = + inner(grad(du-toProject),grad(v)) * dx \
           + inner(du-toProject,v) * dx
 
+  bcs = [DirichletBC(V,Constant(0.0),"near(x[0],0.0) || near(x[0],1.0)"),]
+
   u_h1 = Function(V)
   t0_h1 = time()
-  solve(lhs(delta) == rhs(delta), u_h1)
+  solve(lhs(delta) == rhs(delta), u_h1, bcs=bcs, \
+        form_compiler_parameters={"quadrature_degree":10})
   tf_h1 = time()
 
   t0_l2 = time()
@@ -33,7 +36,7 @@ for n in n_a:
   t0_l2 = time()
   tf_l2 = time()
 
-  u_exact = interpolate(Expression('sin(2.0*pi*x[0])', degree=2), V)
+  u_exact = interpolate(Expression('sin(2.0*pi*x[0])', degree=1), V)
 
   # Plot the result:
   herr = norm(u_exact.vector() - u_h1.vector())
