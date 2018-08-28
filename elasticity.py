@@ -54,12 +54,12 @@ for n in [5,10,25]:
   u_mag = u.split(True)[2]
 
   # get varaibles for Nanson's formula :
-  k     = Constant((0,0,1))
-  N     = k
-  F     = Identity(3) + grad(u)
-  J     = det(F)
-  n_mag = sqrt(u_mag.dx(0)**2 + u_mag.dx(1)**2 + 1)
-  n     = (k - nabla_grad(u_mag)) / n_mag
+  k     = Constant((0,0,1))                          # z-coordinate unit
+  N     = k                                          # reference outward normal
+  F     = Identity(3) + grad(u)                      # deformation gradient
+  J     = det(F)                                     # determinant of deformation
+  n_mag = sqrt(u_mag.dx(0)**2 + u_mag.dx(1)**2 + 1)  # outward-normal magnitude
+  n     = (k - nabla_grad(u_mag)) / n_mag            # current outward normal
 
   A_volume    = assemble( J * dx )
   A_nansen    = assemble( J * dot(dot(inv(F.T), N), n) * dx )
