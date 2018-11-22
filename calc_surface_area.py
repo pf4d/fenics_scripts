@@ -22,18 +22,18 @@ def area(x,y):     return sp.integrate( n_mag_s(x,y), (x,0,1), (y,0,1))
 A_exact = area(x,y)
 
 for n in [5,10,100,500,1000]:
-  mesh        = UnitSquareMesh(n,n)
-  Q           = FunctionSpace(mesh, "CG", 1)
-  e           = Expression('exp(x[0])', degree=2)
-  f           = interpolate(e, Q)
-  A_numerical = assemble( sqrt(f.dx(0)**2 + f.dx(1)**2 + 1) *  dx)
-  print 'for n = %i -- error = %.2e' % (n, abs(A_exact.evalf() - A_numerical))
+	mesh        = UnitSquareMesh(n,n)
+	Q           = FunctionSpace(mesh, "CG", 1)
+	e           = Expression('exp(x[0])', degree=2)
+	f           = interpolate(e, Q)
+	A_numerical = assemble( sqrt(f.dx(0)**2 + f.dx(1)**2 + 1) *  dx)
+	print 'for n = %i -- error = %.2e' % (n, abs(A_exact.evalf() - A_numerical))
 
-n        = 10 
+n        = 10
 mesh     = UnitSquareMesh(n,n)
-Q        = FunctionSpace(mesh, "CG", 1) 
+Q        = FunctionSpace(mesh, "CG", 1)
 e        = Expression('exp(x[0])', degree=2)
-f        = interpolate(e, Q) 
+f        = interpolate(e, Q)
 A_vector = project( sqrt(f.dx(0)**2 + f.dx(1)**2 + 1), Q)
 
 ax = plot(A_vector)
