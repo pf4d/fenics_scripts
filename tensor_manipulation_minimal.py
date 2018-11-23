@@ -3,6 +3,10 @@ from dolfin import *
 import numpy             as np
 import matplotlib.pyplot as plt
 
+import petsc4py, sys
+petsc4py.init(sys.argv)
+from petsc4py import PETSc
+
 # create mesh :
 nx,ny,nz = 2,2,2
 mesh     = UnitCubeMesh(nx, ny, nz)
