@@ -49,67 +49,11 @@ b_x_dofs.sort()
 b_y_dofs.sort()
 b_z_dofs.sort()
 
-# create pseudo-transformation matrix (not really a transformation matrix, but
-# this is not related to the problem) :
-T = PETScMatrix()
-T.mat().setSizes([W.dim()]*2)
-T.mat().setType("aij")
-T.mat().setUp()
-T.mat().assemble()
-T.ident_zeros()
-
-for i,j,k in zip(b_x_dofs, b_y_dofs, b_z_dofs):
-	print(i,j,k)
-	block = np.array([1],      dtype = np.float_)
-	rows  = np.array([i],      dtype = np.intc)
-	cols  = np.array([i],      dtype = np.intc)
-	T.set(block,rows,cols)
-
-	block = np.array([2],      dtype = np.float_)
-	rows  = np.array([i],      dtype = np.intc)
-	cols  = np.array([j],      dtype = np.intc)
-	T.set(block,rows,cols)
-
-	block = np.array([3],      dtype = np.float_)
-	rows  = np.array([i],      dtype = np.intc)
-	cols  = np.array([k],      dtype = np.intc)
-	T.set(block,rows,cols)
-
-	block = np.array([4],      dtype = np.float_)
-	rows  = np.array([j],      dtype = np.intc)
-	cols  = np.array([i],      dtype = np.intc)
-	T.set(block,rows,cols)
-
-	block = np.array([5],      dtype = np.float_)
-	rows  = np.array([j],      dtype = np.intc)
-	cols  = np.array([j],      dtype = np.intc)
-	T.set(block,rows,cols)
-
-	block = np.array([6],      dtype = np.float_)
-	rows  = np.array([j],      dtype = np.intc)
-	cols  = np.array([k],      dtype = np.intc)
-	T.set(block,rows,cols)
-
-	block = np.array([7],      dtype = np.float_)
-	rows  = np.array([k],      dtype = np.intc)
-	cols  = np.array([i],      dtype = np.intc)
-	T.set(block,rows,cols)
-
-	block = np.array([8],      dtype = np.float_)
-	rows  = np.array([k],      dtype = np.intc)
-	cols  = np.array([j],      dtype = np.intc)
-	T.set(block,rows,cols)
-
-	block = np.array([9],      dtype = np.float_)
-	rows  = np.array([k],      dtype = np.intc)
-	cols  = np.array([k],      dtype = np.intc)
-	T.set(block,rows,cols)
-
-T.apply('insert')
-
 # define variational problem :
-u, p = TrialFunctions(W)
-v, q = TestFunctions(W)
+U    = TrialFunction(W)
+V    = TestFunction(W)
+u, p = split(U)
+v, q = split(V)
 f    = Constant((0, 0, 0))
 a    = inner(grad(u), grad(v)) * dx
 L    = inner(f, v)*dx
@@ -118,10 +62,44 @@ L    = inner(f, v)*dx
 A    = assemble(a)
 b    = assemble(L)
 
+# Create a matrix full of zeros by integrating over empty domain.  (No elements
+# are flagged with ID 1.)  For some reason this seems to be the only way I can
+# find to create A that allows BCs to be set without errors:
+T = assemble(inner(U,V)*dx(999), keep_diagonal=True)
+T.ident_zeros()
+
 # get the underlying matricies and vector to operate on :
 T    = as_backend_type(T).mat()
 A    = as_backend_type(A).mat()
 b    = as_backend_type(b).vec()
+
+# If you know how many nonzeros per row are needed, you can do something like
+# the following:
+nonzerosPerRow = 3
+T.setPreallocationNNZ([nonzerosPerRow,nonzerosPerRow])
+T.setUp()
+
+# The following can be uncommented for this code to work even if you don't
+# know how many nonzeros per row to allocate:
+#T.setOption(PETSc.Mat.Option.NEW_NONZERO_ALLOCATION_ERR, False)
+
+# set to identity matrix first :
+Istart, Iend = T.getOwnershipRange()
+for i in range(Istart, Iend): T[i,i] = 1.0
+
+# then set the valuse of the transformation tensor :
+for i,j,k in zip(b_x_dofs, b_y_dofs, b_z_dofs):
+	print(i,j,k)
+	T[i,i] = 1
+	T[i,j] = 2
+	T[i,k] = 3
+	T[j,i] = 4
+	T[j,j] = 5
+	T[j,k] = 6
+	T[k,i] = 7
+	T[k,j] = 8
+	T[k,k] = 9
+T.assemble()
 
 # pseudo transform the system of equations TAT^T x = T b :
 A_n  = Matrix(PETScMatrix(T.matMult(A).matTransposeMult(T)))
@@ -160,6 +138,7 @@ A_n_diag.apply('insert')
 A_n.set_diagonal(A_n_diag)
 
 # apply boundary conditions to the modified system :
+m_x_bc.apply(b_n)
 
 # NOTE: this fails with :
 #
@@ -186,30 +165,5 @@ A_n.set_diagonal(A_n_diag)
 #*** -------------------------------------------------------------------------
 #
 m_x_bc.apply(A_n)
-
-# NOTE: this fails with :
-#
-#RuntimeError:
-#
-#*** -------------------------------------------------------------------------
-#*** DOLFIN encountered an error. If you are not able to resolve this issue
-#*** using the information listed below, you can ask for help at
-#***
-#***     fenics-support@googlegroups.com
-#***
-#*** Remember to include the error message listed below and, if possible,
-#*** include a *minimal* running example to reproduce the error.
-#***
-#*** -------------------------------------------------------------------------
-#*** Error:   Unable to successfully call PETSc function 'VecSetValuesLocal'.
-#*** Reason:  PETSc error code is: 73 (Object is in wrong state).
-#*** Where:   This error was encountered inside dolfin/la/PETScVector.cpp.
-#*** Process: 0
-#***
-#*** DOLFIN version: 2017.2.0
-#*** Git changeset:  4c59bbdb45b95db2f07f4e3fd8985c098615527f
-#*** -------------------------------------------------------------------------
-#
-m_x_bc.apply(b_n)
 
 
